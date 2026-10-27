@@ -201,6 +201,7 @@ async function loadAll() {
     setStats(stats);
     renderAll();
     renderSettings();
+    renderStorage();
   } catch (err) {
     toast(`تعذر تحميل البيانات: ${err.message}`, 'error');
   } finally {
@@ -781,6 +782,70 @@ $('drawer').addEventListener('click', e => {
 $('drawerBackdrop').addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && state.openId) closeDrawer();
+});
+
+// ---------- المساحة والصيانة ----------
+
+const TABLE_LABELS = {
+  events: 'سجل الزيارات والنقرات',
+  stores: 'المتاجر',
+  store_owners: 'بيانات أصحاب المتاجر',
+  store_locations: 'مواقع المتاجر',
+  store_stats_daily: 'أداء المتاجر اليومي',
+  store_search_terms: 'كلمات البحث اليومية',
+  store_viewer_cities: 'مدن الباحثين اليومية',
+  store_stats_monthly: 'أداء المتاجر الشهري',
+  store_search_terms_monthly: 'كلمات البحث الشهرية',
+  store_viewer_cities_monthly: 'مدن الباحثين الشهرية',
+  site_stats_daily: 'مجاميع الزيارات اليومية',
+  payments: 'المدفوعات',
+  store_edits: 'طلبات التعديل',
+};
+const FREE_PLAN_BYTES = 500 * 1024 * 1024;
+const mb = bytes => `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+
+async function renderStorage() {
+  const panel = $('storagePanel');
+  let st;
+  try {
+    st = await backend.storageStats();
+  } catch {
+    panel.innerHTML = '<h2>🗄️ المساحة والصيانة</h2><p class="muted">تتوفر بعد تشغيل ترحيل قاعدة البيانات 004.</p>';
+    return;
+  }
+  const pct = Math.min(100, Math.round((st.db_bytes / FREE_PLAN_BYTES) * 100));
+  const last = st.last_run;
+  const lastText = last
+    ? `${DATETIME.format(new Date(last.ran_at))} · ضُغط ${formatNumber((last.result.events || 0) + (last.result.daily || 0) + (last.result.terms || 0) + (last.result.cities || 0))} سجل`
+    : 'لم يُشغَّل بعد';
+  panel.innerHTML = `
+    <h2>🗄️ المساحة والصيانة</h2>
+    <div class="storage-meter${pct >= 80 ? ' warn' : ''}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+      <span style="width:${Math.max(pct, 1)}%"></span>
+    </div>
+    <p class="storage-text"><strong><bdi dir="ltr">${mb(st.db_bytes)}</bdi></strong> من <bdi dir="ltr">500 MB</bdi> (الخطة المجانية) · <bdi dir="ltr">${pct}%</bdi></p>
+    <table class="fields-table storage-table">
+      <thead><tr><th>الجدول</th><th>السجلات</th><th>الحجم</th></tr></thead>
+      <tbody>${st.tables.slice(0, 6).map(t => `<tr><td>${escapeHtml(TABLE_LABELS[t.name] || t.name)}</td><td>${formatNumber(t.rows)}</td><td dir="ltr">${mb(t.bytes)}</td></tr>`).join('')}</tbody>
+    </table>
+    <p class="hint">🧹 التنظيف التلقائي ${st.cron ? '<b>مفعّل</b> يوميًا الساعة 3:15 فجرًا' : '<b class="warn-text">غير مفعّل</b>: فعّل <b>Cron</b> من Supabase ← Integrations ثم أعد تشغيل ملف الترحيل 004'}. آخر تشغيل: ${escapeHtml(lastText)}.</p>
+    <p class="hint">يحفظ سجل الزيارات الخام 200 يوم ثم يجمعه يوميًا، وأداء المتاجر اليومي 13 شهر ثم يجمعه شهريًا (أعلى 50 كلمة ومدينة لكل متجر بالشهر)، فما تضيع الأرقام الإجمالية.</p>
+    <button type="button" class="btn btn-ghost btn-sm" id="compactBtn">🧹 تنظيف الإحصائيات القديمة الآن</button>`;
+}
+
+$('storagePanel').addEventListener('click', async e => {
+  if (!e.target.closest('#compactBtn')) return;
+  const btn = e.target.closest('#compactBtn');
+  btn.disabled = true;
+  try {
+    const r = await backend.compactStats();
+    const total = (r.events || 0) + (r.daily || 0) + (r.terms || 0) + (r.cities || 0);
+    toast(total ? `🧹 تم ضغط ${formatNumber(total)} سجل قديم` : '🧹 ما فيه بيانات قديمة تحتاج تنظيف');
+    renderStorage();
+  } catch (err) {
+    toast(`تعذر التنظيف: ${err.message}`, 'error');
+    btn.disabled = false;
+  }
 });
 
 // ---------- الإعدادات ----------

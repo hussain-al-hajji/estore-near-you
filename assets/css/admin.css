@@ -317,3 +317,11 @@ small.bill { display: block; width: fit-content; margin-top: 4px; }
 .diff-table td.new { color: #2f6b06; font-weight: 600; }
 .drawer-actions.inline { padding: 0; background: none; border: none; }
 .more-cats { font-style: normal; font-size: 11.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: var(--violet-soft); color: var(--violet-deep); cursor: help; }
+
+/* ---------- المساحة والصيانة ---------- */
+.storage-meter { height: 14px; border-radius: 999px; background: var(--violet-soft); overflow: hidden; margin: 6px 0 8px; }
+.storage-meter span { display: block; height: 100%; background: var(--violet); border-radius: 999px; }
+.storage-meter.warn span { background: var(--coral); }
+.storage-text { margin: 0 0 12px; font-size: 14px; }
+.storage-table td:nth-child(n+2), .storage-table th:nth-child(n+2) { text-align: left; font-variant-numeric: tabular-nums; }
+.warn-text { color: #b8331a; }

@@ -47,6 +47,8 @@ function liveBackend(sb) {
       check(await sb.rpc('admin_review_edit', { p_edit: id, p_approve: approve, p_note: note || null }));
     },
     performance: async (id, days) => check(await sb.rpc('store_performance', { p_store: id, p_days: days })),
+    storageStats: async () => check(await sb.rpc('admin_storage_stats')),
+    compactStats: async () => check(await sb.rpc('compact_stats')),
     adminSettings: async () => check(await sb.from('admin_settings').select('data').eq('id', 1).maybeSingle())?.data || {},
     saveAdminSettings: async data => {
       check(await sb.from('admin_settings').update({ data, updated_at: new Date().toISOString() }).eq('id', 1));
@@ -164,6 +166,25 @@ function demoBackend() {
       storage(DEMO_KEYS.edits, edits);
     },
     performance: async (id, days) => demoPerformance(id, days),
+    async storageStats() {
+      const run = storage('dukkan.demoCompact');
+      return {
+        db_bytes: 14.2 * 1024 * 1024,
+        cron: true,
+        last_run: run || null,
+        tables: [
+          { name: 'events', rows: 48210, bytes: 6.1 * 1024 * 1024 },
+          { name: 'store_stats_daily', rows: 5120, bytes: 0.9 * 1024 * 1024 },
+          { name: 'store_search_terms', rows: 8800, bytes: 1.4 * 1024 * 1024 },
+          { name: 'stores', rows: 15, bytes: 0.1 * 1024 * 1024 },
+        ],
+      };
+    },
+    async compactStats() {
+      const result = { events: 0, daily: 0, terms: 0, cities: 0 };
+      storage('dukkan.demoCompact', { ran_at: new Date().toISOString(), result });
+      return result;
+    },
     saveSettings: async data => { storage(DEMO_KEYS.settings, data); },
     adminSettings: async () => storage(DEMO_KEYS.adminSettings) || {},
     saveAdminSettings: async data => { storage(DEMO_KEYS.adminSettings, data); },
