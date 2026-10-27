@@ -25,6 +25,7 @@
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
+  overflow-x: clip;
   font-family: var(--font);
   color: var(--ink);
   background: var(--bg);
@@ -98,7 +99,7 @@ h1, h2 { line-height: 1.25; }
 .demo-banner.inline { border-radius: 14px; text-align: start; margin: 0 0 18px; border: 1px dashed #b7d63a; }
 
 /* ---------- صفحة التصفح: الخريطة فوق والقائمة تحت ---------- */
-body.browse { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.screen-browse { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
 .filters {
   display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 12px;
@@ -300,7 +301,8 @@ form.validated :is(input, select, textarea):invalid { border-color: var(--danger
 
 .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
 .toggle { cursor: pointer; }
-.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle { position: relative; }
+.toggle input, .switch input { position: absolute; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; opacity: 0; pointer-events: none; }
 .toggle span {
   display: inline-block; padding: 7px 16px; border-radius: 999px; border: 2px solid var(--line);
   font-size: 14.5px; font-weight: 500; transition: all .15s; user-select: none;
@@ -312,8 +314,7 @@ form.validated :is(input, select, textarea):invalid { border-color: var(--danger
 .check { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; font-size: 15px; margin-top: 12px; }
 .check input { width: 20px; height: 20px; min-height: 0; margin: 2px 0 0; accent-color: var(--violet); flex: 0 0 auto; }
 
-.switch { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 14.5px; margin-top: 16px; }
-.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch { position: relative; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; font-size: 14.5px; margin-top: 16px; }
 .switch .track {
   flex: 0 0 46px; height: 26px; border-radius: 999px; background: #ddd8ee; position: relative; transition: background .2s;
 }

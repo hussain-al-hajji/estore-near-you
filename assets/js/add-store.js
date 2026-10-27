@@ -1,4 +1,4 @@
-import { REGIONS, CATEGORIES, CATEGORY_ICONS, DELIVERY, DELIVERY_ICONS } from './constants.js';
+import { REGIONS, CATEGORIES, CATEGORY_ICONS, DELIVERY, DELIVERY_ICONS, SA_CENTER, SA_ZOOM } from './constants.js';
 import { submitStore, isDemo } from './api.js';
 import { createMap, pinIcon } from './map.js';
 import {
@@ -9,7 +9,7 @@ const form = document.getElementById('storeForm');
 const f = form.elements;
 const $ = id => document.getElementById(id);
 
-if (isDemo) $('demoBanner').hidden = false;
+if (isDemo) $('addDemoBanner').hidden = false;
 
 for (const c of CATEGORIES) f.category.add(new Option(`${CATEGORY_ICONS[c]}  ${c}`, c));
 for (const r of REGIONS) f.region.add(new Option(r.name, r.name));
@@ -187,3 +187,20 @@ form.addEventListener('submit', async e => {
     btn.textContent = 'أرسل طلبك 🚀';
   }
 });
+
+// عند فتح القسم مجددًا: نعيد ضبط حجم الخريطة، ونبدأ نموذجًا جديدًا إذا كان الطلب السابق قد أُرسل
+export function onShow() {
+  map.invalidateSize();
+  if ($('success').hidden) return;
+  form.reset();
+  form.classList.remove('validated');
+  updateCities();
+  marker?.remove();
+  marker = null;
+  picked = null;
+  $('coords').textContent = 'لم يُحدد الموقع بعد';
+  $('coords').classList.remove('ok');
+  map.setView(SA_CENTER, SA_ZOOM);
+  $('success').hidden = true;
+  form.hidden = false;
+}

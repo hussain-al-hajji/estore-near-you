@@ -13,61 +13,341 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="">
   <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/admin.css">
 </head>
-<body class="browse">
-  <header class="topbar">
-    <a class="brand" href="./" aria-label="دكان الحي، الصفحة الرئيسية">
-      <img src="assets/img/logo.svg" alt="دكان الحي" height="40">
-    </a>
-    <span class="tagline">متاجر أونلاين من حيّك 📍</span>
-    <a class="btn btn-primary btn-pop" href="add-store.html"><span class="plus">+</span> أضف متجرك</a>
-  </header>
+<body>
+  <!-- ==================== تصفح المتاجر (#) ==================== -->
+  <div class="screen screen-browse" id="screen-browse" hidden>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="دكان الحي، الصفحة الرئيسية">
+        <img src="assets/img/logo.svg" alt="دكان الحي" height="40">
+      </a>
+      <span class="tagline">متاجر أونلاين من حيّك 📍</span>
+      <a class="btn btn-primary btn-pop" href="#add"><span class="plus">+</span> أضف متجرك</a>
+    </header>
 
-  <div class="demo-banner" id="demoBanner" hidden>🧪 وضع تجريبي: المتاجر المعروضة وهمية لأغراض العرض فقط.</div>
+    <div class="demo-banner" id="demoBanner" hidden>🧪 وضع تجريبي: المتاجر المعروضة وهمية لأغراض العرض فقط.</div>
 
-  <section class="filters" aria-label="تصفية المتاجر">
-    <div class="filter-row">
-      <label class="search">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input type="search" id="q" placeholder="وش تدوّر عليه؟ قهوة، عطور، هدايا…" aria-label="بحث">
-      </label>
-      <div class="filter-scroll">
-        <select id="region" aria-label="المنطقة"><option value="">🗺️ كل المناطق</option></select>
-        <select id="city" aria-label="المدينة" disabled><option value="">🏙️ كل المدن</option></select>
-        <button type="button" class="btn btn-near" id="nearMe"><span class="pulse"></span> القريبة مني</button>
-        <select id="radius" aria-label="المسافة" hidden>
-          <option value="">أي مسافة</option>
-          <option value="5">خلال 5 كم</option>
-          <option value="10">خلال 10 كم</option>
-          <option value="25">خلال 25 كم</option>
-          <option value="50">خلال 50 كم</option>
-        </select>
-      </div>
-    </div>
-    <div class="chips" id="categoryChips" role="group" aria-label="التصنيفات"></div>
-  </section>
-
-  <main class="split">
-    <div id="map" class="map" role="region" aria-label="خريطة المتاجر"></div>
-    <section class="sheet" aria-label="قائمة المتاجر">
-      <div class="sheet-head">
-        <span class="grabber" aria-hidden="true"></span>
-        <div>
-          <h1 id="count">جارٍ التحميل…</h1>
-          <p class="subtitle" id="subtitle"></p>
-        </div>
-        <div class="legend">
-          <span><i class="dot dot-store"></i>متجر</span>
-          <span><i class="dot dot-warehouse"></i>مخزون</span>
+    <section class="filters" aria-label="تصفية المتاجر">
+      <div class="filter-row">
+        <label class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input type="search" id="q" placeholder="وش تدوّر عليه؟ قهوة، عطور، هدايا…" aria-label="بحث">
+        </label>
+        <div class="filter-scroll">
+          <select id="region" aria-label="المنطقة"><option value="">🗺️ كل المناطق</option></select>
+          <select id="city" aria-label="المدينة" disabled><option value="">🏙️ كل المدن</option></select>
+          <button type="button" class="btn btn-near" id="nearMe"><span class="pulse"></span> القريبة مني</button>
+          <select id="radius" aria-label="المسافة" hidden>
+            <option value="">أي مسافة</option>
+            <option value="5">خلال 5 كم</option>
+            <option value="10">خلال 10 كم</option>
+            <option value="25">خلال 25 كم</option>
+            <option value="50">خلال 50 كم</option>
+          </select>
         </div>
       </div>
-      <div class="status" id="status" hidden></div>
-      <ul class="cards" id="list"></ul>
+      <div class="chips" id="categoryChips" role="group" aria-label="التصنيفات"></div>
     </section>
-  </main>
+
+    <main class="split">
+      <div id="map" class="map" role="region" aria-label="خريطة المتاجر"></div>
+      <section class="sheet" aria-label="قائمة المتاجر">
+        <div class="sheet-head">
+          <span class="grabber" aria-hidden="true"></span>
+          <div>
+            <h1 id="count">جارٍ التحميل…</h1>
+            <p class="subtitle" id="subtitle"></p>
+          </div>
+          <div class="legend">
+            <span><i class="dot dot-store"></i>متجر</span>
+            <span><i class="dot dot-warehouse"></i>مخزون</span>
+          </div>
+        </div>
+        <div class="status" id="status" hidden></div>
+        <ul class="cards" id="list"></ul>
+      </section>
+    </main>
+  </div>
+
+  <!-- ==================== أضف متجرك (#add) ==================== -->
+  <div class="screen screen-add" id="screen-add" hidden>
+    <header class="hero">
+      <nav class="hero-nav">
+        <a class="brand" href="#" aria-label="دكان الحي، الصفحة الرئيسية">
+          <img src="assets/img/logo-white.svg" alt="دكان الحي" height="40">
+        </a>
+        <a class="btn btn-glass" href="#">تصفح المتاجر ←</a>
+      </nav>
+      <div class="hero-body">
+        <span class="sticker">مجاني 100% 🎉</span>
+        <h1>خلّ حيّك يلقاك!</h1>
+        <p>سجّل متجرك الإلكتروني في دقيقتين، وحدد موقعك على الخريطة، ويوصلك أهل حيّك ومدينتك.</p>
+      </div>
+      <span class="blob blob-lime" aria-hidden="true"></span>
+      <span class="blob blob-coral" aria-hidden="true"></span>
+    </header>
+
+    <main class="container">
+      <p class="demo-banner inline" id="addDemoBanner" hidden>🧪 وضع تجريبي: الطلب يُحفظ في متصفحك فقط ولا يُرسل لأي خادم.</p>
+
+      <form id="storeForm" novalidate>
+        <fieldset>
+          <legend><span class="step">1</span> عرّفنا على متجرك</legend>
+          <div class="grid">
+            <label class="field">
+              <span>اسم المتجر <b>*</b></span>
+              <input name="name" required minlength="2" maxlength="80" autocomplete="organization" placeholder="مثال: حلويات بيت الجدة">
+            </label>
+            <label class="field">
+              <span>رابط المتجر <b>*</b></span>
+              <input name="url" required inputmode="url" placeholder="mystore.com أو رابط سلة/زد" dir="ltr">
+            </label>
+            <label class="field">
+              <span>التصنيف <b>*</b></span>
+              <select name="category" required><option value="">اختر التصنيف</option></select>
+            </label>
+            <label class="field">
+              <span>رابط الشعار <small>(اختياري)</small></span>
+              <input name="logo_url" inputmode="url" placeholder="https://…/logo.png" dir="ltr">
+            </label>
+            <label class="field full">
+              <span>نبذة عن المتجر <small>(اختياري، 500 حرف)</small></span>
+              <textarea name="description" rows="3" maxlength="500" placeholder="وش تبيع؟ وش يميزك؟ ✨"></textarea>
+            </label>
+          </div>
+
+          <div class="field full">
+            <span>خيارات التوصيل</span>
+            <div class="toggles" id="deliveryChecks"></div>
+          </div>
+
+          <details class="more">
+            <summary>حسابات التواصل <small>(اختياري)</small></summary>
+            <div class="grid">
+              <label class="field"><span>انستقرام</span><input name="instagram" placeholder="@mystore" dir="ltr"></label>
+              <label class="field"><span>إكس</span><input name="x_handle" placeholder="@mystore" dir="ltr"></label>
+              <label class="field"><span>تيك توك</span><input name="tiktok" placeholder="@mystore" dir="ltr"></label>
+              <label class="field"><span>واتساب المتجر</span><input name="whatsapp" inputmode="tel" placeholder="05xxxxxxxx" dir="ltr"></label>
+            </div>
+          </details>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="step">2</span> وين موقعك؟</legend>
+
+          <div class="segmented" role="radiogroup" aria-label="نوع الموقع">
+            <label><input type="radio" name="location_type" value="store" checked><span>🏪 موقع المتجر</span></label>
+            <label><input type="radio" name="location_type" value="warehouse"><span>📦 موقع المخزون</span></label>
+          </div>
+
+          <p class="hint">👆 اضغط على الخريطة لتحديد الموقع، ثم اسحب الدبوس لضبطه بدقة.</p>
+          <div class="picker-tools">
+            <button type="button" class="btn btn-near btn-sm" id="useMyLocation"><span class="pulse"></span> استخدم موقعي الحالي</button>
+            <span class="or">أو</span>
+            <div class="paste">
+              <input id="mapLink" placeholder="الصق رابط خرائط قوقل أو الإحداثيات" dir="ltr" aria-label="رابط الموقع">
+              <button type="button" class="btn btn-ghost btn-sm" id="parseLink">تحديد</button>
+            </div>
+          </div>
+          <p class="error" id="linkError" hidden></p>
+          <div id="pickerMap" class="picker-map" aria-label="خريطة لتحديد الموقع"></div>
+          <p class="coords" id="coords">لم يُحدد الموقع بعد</p>
+
+          <div class="grid">
+            <label class="field">
+              <span>المنطقة <b>*</b></span>
+              <select name="region" required><option value="">اختر المنطقة</option></select>
+            </label>
+            <label class="field">
+              <span>المدينة <b>*</b></span>
+              <select name="city" required disabled><option value="">اختر المدينة</option></select>
+            </label>
+            <label class="field">
+              <span>الحي <small>(اختياري)</small></span>
+              <input name="district" maxlength="60" placeholder="مثال: حي النزهة">
+            </label>
+          </div>
+
+          <label class="switch">
+            <input type="checkbox" name="approximate">
+            <span class="track" aria-hidden="true"></span>
+            <span>اعرض موقعي بشكل تقريبي (ضمن 1 كم تقريبًا)، مناسب للمتاجر المنزلية 🏠</span>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend><span class="step">3</span> بياناتك <small class="private">🔒 خاصة ولن تُنشر</small></legend>
+          <div class="grid">
+            <label class="field">
+              <span>الاسم <b>*</b></span>
+              <input name="owner_name" required minlength="2" maxlength="80" autocomplete="name">
+            </label>
+            <label class="field">
+              <span>رقم الجوال <b>*</b></span>
+              <input name="phone" required inputmode="tel" placeholder="05xxxxxxxx" autocomplete="tel" dir="ltr">
+            </label>
+            <label class="field">
+              <span>البريد الإلكتروني <b>*</b></span>
+              <input name="email" type="email" required autocomplete="email" dir="ltr">
+            </label>
+            <label class="field">
+              <span>رقم السجل التجاري أو وثيقة العمل الحر <small>(اختياري)</small></span>
+              <input name="cr_number" maxlength="30" dir="ltr">
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- حقل فخ للبرامج الآلية، يبقى فارغًا عند البشر -->
+        <input class="hp" name="company_site" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <label class="check terms">
+          <input type="checkbox" name="agree" required>
+          <span>أقر بصحة البيانات وأن المتجر يعمل بشكل نظامي.</span>
+        </label>
+
+        <p class="error" id="formError" hidden></p>
+        <button type="submit" class="btn btn-primary btn-lg btn-pop" id="submitBtn">أرسل طلبك 🚀</button>
+      </form>
+
+      <section class="success" id="success" hidden>
+        <div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="success-icon">🎉</div>
+        <h2>وصلنا طلبك!</h2>
+        <p>بنراجع بيانات متجرك ونتواصل معك، وبعد الاعتماد يطلع متجرك على الخريطة لأهل حيّك.</p>
+        <a class="btn btn-primary btn-pop" href="#">تصفح المتاجر</a>
+      </section>
+    </main>
+  </div>
+
+  <!-- ==================== لوحة التحكم (#admin) ==================== -->
+  <div class="screen screen-admin" id="screen-admin" hidden>
+    <!-- تسجيل الدخول -->
+    <main class="login" id="loginView" hidden>
+      <form class="login-card" id="loginForm">
+        <img src="assets/img/logo.svg" alt="دكان الحي" height="56">
+        <h1>لوحة التحكم</h1>
+        <p class="muted">للمشرفين فقط 🔒</p>
+        <div class="demo-banner inline" id="loginDemo" hidden>🧪 وضع تجريبي: اضغط «دخول تجريبي» لتجربة اللوحة ببيانات وهمية.</div>
+        <div id="loginFields">
+          <label class="field"><span>البريد الإلكتروني</span><input name="email" type="email" required autocomplete="username" dir="ltr"></label>
+          <label class="field"><span>كلمة المرور</span><input name="password" type="password" required autocomplete="current-password" dir="ltr"></label>
+        </div>
+        <p class="error" id="loginError" hidden></p>
+        <button class="btn btn-primary btn-lg btn-pop" id="loginBtn">دخول</button>
+        <a class="back" href="#">← رجوع للموقع</a>
+      </form>
+    </main>
+
+    <!-- اللوحة -->
+    <div class="app" id="appView" hidden>
+      <header class="admin-bar">
+        <a class="brand" href="#" aria-label="الموقع"><img src="assets/img/logo-white.svg" alt="دكان الحي" height="32"></a>
+        <span class="pill-dark">لوحة التحكم</span>
+        <nav class="tabs" role="tablist">
+          <a href="#admin/overview" class="tab" data-tab="overview" role="tab">📊 نظرة عامة</a>
+          <a href="#admin/stores" class="tab" data-tab="stores" role="tab">🏪 المتاجر <span class="count-badge" id="pendingBadge" hidden></span></a>
+        </nav>
+        <div class="admin-user">
+          <span id="userEmail"></span>
+          <button class="btn btn-glass btn-sm" id="logoutBtn">خروج</button>
+        </div>
+      </header>
+      <div class="demo-banner" id="appDemo" hidden>🧪 وضع تجريبي: البيانات والإحصائيات وهمية، والتعديلات تُحفظ في متصفحك فقط.</div>
+
+      <!-- نظرة عامة -->
+      <section class="view" id="adminOverview" data-tab="overview" hidden>
+        <div class="view-head">
+          <div>
+            <h1>أهلًا بك 👋</h1>
+            <p class="muted">ملخص نشاط المنصة</p>
+          </div>
+          <div class="segmented range" role="radiogroup" aria-label="الفترة">
+            <label><input type="radio" name="range" value="7"><span>7 أيام</span></label>
+            <label><input type="radio" name="range" value="30" checked><span>30 يوم</span></label>
+            <label><input type="radio" name="range" value="90"><span>90 يوم</span></label>
+          </div>
+        </div>
+
+        <div class="tiles" id="tiles"></div>
+
+        <div class="panels">
+          <article class="panel wide">
+            <h2>زيارات الموقع اليومية</h2>
+            <div class="chart" id="visitsChart"></div>
+          </article>
+          <article class="panel wide">
+            <h2>المتاجر المسجلة يوميًا</h2>
+            <div class="chart" id="signupsChart"></div>
+          </article>
+          <article class="panel">
+            <h2>الأكثر نقرًا من الزوار</h2>
+            <div class="bars" id="topStores"></div>
+          </article>
+          <article class="panel">
+            <h2>المتاجر المعتمدة حسب المنطقة</h2>
+            <div class="bars" id="byRegion"></div>
+          </article>
+          <article class="panel">
+            <h2>المتاجر المعتمدة حسب التصنيف</h2>
+            <div class="bars" id="byCategory"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- المتاجر -->
+      <section class="view" id="adminStores" data-tab="stores" hidden>
+        <div class="view-head">
+          <div>
+            <h1>المتاجر</h1>
+            <p class="muted" id="storesSummary"></p>
+          </div>
+          <button class="btn btn-ghost" id="exportBtn">⬇️ تصدير Excel</button>
+        </div>
+
+        <div class="toolbar">
+          <div class="status-tabs" id="statusTabs" role="tablist"></div>
+          <div class="toolbar-filters">
+            <label class="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+              <input type="search" id="tableSearch" placeholder="اسم المتجر، المالك، الجوال، الإيميل…" aria-label="بحث">
+            </label>
+            <select id="tableRegion" aria-label="المنطقة"><option value="">كل المناطق</option></select>
+            <select id="tableCategory" aria-label="التصنيف"><option value="">كل التصنيفات</option></select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th data-sort="name">المتجر</th>
+                <th data-sort="category">التصنيف</th>
+                <th data-sort="city">الموقع</th>
+                <th data-sort="owner">صاحب المتجر</th>
+                <th data-sort="clicks" class="num">النقرات</th>
+                <th data-sort="created_at" class="sorted desc">تاريخ التسجيل</th>
+                <th data-sort="status">الحالة</th>
+                <th><span class="sr-only">إجراءات</span></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+          <div class="status" id="tableEmpty" hidden></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- تفاصيل متجر -->
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+    <aside class="drawer" id="drawer" aria-hidden="true" tabindex="-1"></aside>
+
+    <div class="tooltip" id="tooltip" role="status" hidden></div>
+    <div class="toast" id="toast" role="status" hidden></div>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin=""></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin=""></script>
-  <script type="module" src="assets/js/browse.js"></script>
+  <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>

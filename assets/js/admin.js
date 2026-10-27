@@ -184,7 +184,7 @@ function renderOverview() {
   const cities = new Set(approved.map(s => s.city)).size;
 
   const tiles = [
-    { label: 'بانتظار المراجعة', value: pending, sub: pending ? 'اضغط للمراجعة ←' : 'كل الطلبات مراجعة 👌', accent: pending > 0, href: '#stores', status: 'pending' },
+    { label: 'بانتظار المراجعة', value: pending, sub: pending ? 'اضغط للمراجعة ←' : 'كل الطلبات مراجعة 👌', accent: pending > 0, href: '#admin/stores', status: 'pending' },
     { label: 'متاجر معتمدة', value: approved.length, sub: `في ${formatNumber(cities)} مدينة` },
     { label: 'زيارات الموقع', value: visits, sub: delta(visits, sum(previous, 'visits')) },
     { label: 'نقرات على المتاجر', value: clicks, sub: delta(clicks, sum(previous, 'clicks')) },
@@ -523,8 +523,9 @@ $('exportBtn').addEventListener('click', () => {
 // ---------- التنقل ----------
 
 function route() {
-  const tab = location.hash === '#stores' ? 'stores' : 'overview';
-  document.querySelectorAll('.view').forEach(v => { v.hidden = v.id !== tab; });
+  if (!location.hash.startsWith('#admin')) return;
+  const tab = location.hash === '#admin/stores' ? 'stores' : 'overview';
+  document.querySelectorAll('.view').forEach(v => { v.hidden = v.dataset.tab !== tab; });
   document.querySelectorAll('.tab').forEach(t => {
     t.classList.toggle('active', t.dataset.tab === tab);
     t.setAttribute('aria-selected', String(t.dataset.tab === tab));
@@ -539,3 +540,14 @@ window.addEventListener('hashchange', route);
   if (session) enter(session);
   else showLogin();
 })();
+
+// عند الرجوع للوحة من قسم آخر نحدّث البيانات
+let shown = false;
+export function onShow() {
+  if (!shown) {
+    shown = true;
+    return;
+  }
+  route();
+  if (!$('appView').hidden) loadAll();
+}

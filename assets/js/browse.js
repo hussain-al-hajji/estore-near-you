@@ -141,7 +141,7 @@ function render({ fit = false } = {}) {
   if (!rows.length) {
     els.status.innerHTML = state.stores.length
       ? '<span class="big">🔍</span><strong>ما لقينا متاجر بهالفلاتر</strong><span>جرّب توسّع البحث أو تغيّر التصنيف.</span>'
-      : '<span class="big">🛍️</span><strong>ما فيه متاجر للحين</strong><span>كن أول متجر في حيّك!</span><a class="btn btn-primary btn-sm" href="add-store.html">أضف متجرك</a>';
+      : '<span class="big">🛍️</span><strong>ما فيه متاجر للحين</strong><span>كن أول متجر في حيّك!</span><a class="btn btn-primary btn-sm" href="#add">أضف متجرك</a>';
   }
 
   cluster.clearLayers();
@@ -263,9 +263,13 @@ async function init() {
     const savedCity = storage('dukkan.city');
     if (savedCity && [...els.city.options].some(o => o.value === savedCity)) els.city.value = savedCity;
   }
+  await load({ fit: true });
+}
+
+async function load({ fit = false } = {}) {
   try {
     state.stores = (await fetchStores()).map(s => ({ ...s, id: String(s.id) }));
-    render({ fit: true });
+    render({ fit });
   } catch (err) {
     els.count.textContent = 'تعذر التحميل';
     els.status.hidden = false;
@@ -274,3 +278,14 @@ async function init() {
 }
 
 init();
+
+// عند الرجوع للتصفح من قسم آخر: نعيد ضبط حجم الخريطة ونحدّث القائمة (قد يكون متجر اعتُمد أو أُضيف)
+let shown = false;
+export function onShow() {
+  if (!shown) {
+    shown = true;
+    return;
+  }
+  map.invalidateSize();
+  load();
+}

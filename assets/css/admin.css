@@ -1,7 +1,6 @@
 /* لوحة تحكم المشرف: تعتمد على متغيرات style.css */
 
-/* الدرج المغلق خارج الشاشة يسارًا، وفي صفحة RTL هذا يوسّع الصفحة، فنقص الفائض الأفقي */
-body.admin { min-height: 100dvh; overflow-x: clip; }
+.screen-admin { min-height: 100dvh; }
 .muted { color: var(--muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .nowrap { white-space: nowrap; }
