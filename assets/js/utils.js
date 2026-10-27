@@ -116,3 +116,9 @@ export function storage(key, value) {
   }
   return value;
 }
+
+// مفتاح اليوم بالتوقيت المحلي بصيغة YYYY-MM-DD
+export function dayKey(date = new Date()) {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

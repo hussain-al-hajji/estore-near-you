@@ -1,10 +1,16 @@
 import { CONFIG } from './config.js';
-import { storage } from './utils.js';
+import { storage, dayKey } from './utils.js';
 
 const LIVE = Boolean(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
-const DEMO_KEY = 'dukkan.demoSubmissions';
+const DEMO = {
+  submissions: 'dukkan.demoSubmissions',
+  owners: 'dukkan.demoOwners',
+  admin: 'dukkan.demoAdmin',
+  events: 'dukkan.demoEvents',
+};
 
 export const isDemo = !LIVE;
+export const DEMO_KEYS = DEMO;
 
 const PUBLIC_COLUMNS = [
   'id', 'name', 'url', 'category', 'description', 'logo_url', 'instagram', 'x_handle', 'tiktok',
@@ -19,6 +25,31 @@ function headers() {
   return h;
 }
 
+// ---- الوضع التجريبي: كل البيانات في متصفحك فقط ----
+
+function daysAgo(n, hour = 10) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  d.setHours(hour, (n * 17) % 60, 0, 0);
+  return d.toISOString();
+}
+
+// كل المتاجر التجريبية بكل حالاتها، مع تعديلات المشرف التجريبية
+export async function demoAllStores() {
+  const demo = await (await fetch('data/demo-stores.json')).json();
+  const admin = storage(DEMO.admin) || {};
+  const deleted = new Set(admin.deleted || []);
+  const submitted = (storage(DEMO.submissions) || []).map(s => ({ status: 'pending', ...s }));
+  const base = demo.map((s, i) => ({ status: 'approved', created_at: daysAgo(i * 4 + 2, 9 + (i % 8)), ...s }));
+  return [...submitted, ...base]
+    .filter(s => !deleted.has(s.id))
+    .map(s => ({
+      ...s,
+      status: admin.status?.[s.id] || s.status,
+      admin_note: admin.notes?.[s.id] ?? null,
+    }));
+}
+
 export async function fetchStores() {
   if (LIVE) {
     const res = await fetch(
@@ -28,10 +59,10 @@ export async function fetchStores() {
     if (!res.ok) throw new Error(`تعذر تحميل المتاجر (${res.status})`);
     return res.json();
   }
-  const res = await fetch('data/demo-stores.json');
-  const demo = await res.json();
-  const submitted = (storage(DEMO_KEY) || []).map(s => ({ ...s, pending: true }));
-  return [...submitted, ...demo];
+  // نعرض الطلبات المعلقة أيضًا (بشارة) حتى تجرب المسار كاملًا
+  return (await demoAllStores())
+    .filter(s => s.status !== 'rejected')
+    .map(s => ({ ...s, pending: s.status === 'pending' }));
 }
 
 export async function submitStore(payload) {
@@ -48,14 +79,36 @@ export async function submitStore(payload) {
     }
     return res.json();
   }
-  // الوضع التجريبي: يُحفظ الطلب في متصفحك فقط (بدون بيانات المالك)
   const { owner_name, phone, email, cr_number, ...publicFields } = payload;
   const id = `demo-${Date.now()}`;
-  const record = { id, ...publicFields };
+  const record = { id, ...publicFields, created_at: new Date().toISOString() };
   if (record.approximate) {
     record.lat = Math.round(record.lat * 100) / 100;
     record.lng = Math.round(record.lng * 100) / 100;
   }
-  storage(DEMO_KEY, [record, ...(storage(DEMO_KEY) || [])]);
+  storage(DEMO.submissions, [record, ...(storage(DEMO.submissions) || [])]);
+  storage(DEMO.owners, { ...(storage(DEMO.owners) || {}), [id]: { owner_name, phone, email, cr_number } });
   return id;
+}
+
+// تسجيل زيارة أو نقرة لإحصائيات لوحة التحكم (لا يُرسل أي بيانات شخصية)
+export function logEvent(type, storeId = null) {
+  if (LIVE) {
+    fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/log_event`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ p_type: type, p_store: storeId }),
+      keepalive: true,
+    }).catch(() => {});
+    return;
+  }
+  const day = dayKey();
+  const events = storage(DEMO.events) || { days: {}, stores: {} };
+  events.days[day] = events.days[day] || { visits: 0, clicks: 0 };
+  if (type === 'visit') events.days[day].visits += 1;
+  if (type === 'store_click') {
+    events.days[day].clicks += 1;
+    events.stores[storeId] = (events.stores[storeId] || 0) + 1;
+  }
+  storage(DEMO.events, events);
 }

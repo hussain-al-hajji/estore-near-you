@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>لوحة التحكم | دكان الحي</title>
+  <meta name="theme-color" content="#1c1240">
+  <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lalezar&family=Readex+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body class="admin">
+  <!-- تسجيل الدخول -->
+  <main class="login" id="loginView" hidden>
+    <form class="login-card" id="loginForm">
+      <img src="assets/img/logo.svg" alt="دكان الحي" height="56">
+      <h1>لوحة التحكم</h1>
+      <p class="muted">للمشرفين فقط 🔒</p>
+      <div class="demo-banner inline" id="loginDemo" hidden>🧪 وضع تجريبي: اضغط «دخول تجريبي» لتجربة اللوحة ببيانات وهمية.</div>
+      <div id="loginFields">
+        <label class="field"><span>البريد الإلكتروني</span><input name="email" type="email" required autocomplete="username" dir="ltr"></label>
+        <label class="field"><span>كلمة المرور</span><input name="password" type="password" required autocomplete="current-password" dir="ltr"></label>
+      </div>
+      <p class="error" id="loginError" hidden></p>
+      <button class="btn btn-primary btn-lg btn-pop" id="loginBtn">دخول</button>
+      <a class="back" href="./">← رجوع للموقع</a>
+    </form>
+  </main>
+
+  <!-- اللوحة -->
+  <div class="app" id="appView" hidden>
+    <header class="admin-bar">
+      <a class="brand" href="./" aria-label="الموقع"><img src="assets/img/logo-white.svg" alt="دكان الحي" height="32"></a>
+      <span class="pill-dark">لوحة التحكم</span>
+      <nav class="tabs" role="tablist">
+        <a href="#overview" class="tab" data-tab="overview" role="tab">📊 نظرة عامة</a>
+        <a href="#stores" class="tab" data-tab="stores" role="tab">🏪 المتاجر <span class="count-badge" id="pendingBadge" hidden></span></a>
+      </nav>
+      <div class="admin-user">
+        <span id="userEmail"></span>
+        <button class="btn btn-glass btn-sm" id="logoutBtn">خروج</button>
+      </div>
+    </header>
+    <div class="demo-banner" id="appDemo" hidden>🧪 وضع تجريبي: البيانات والإحصائيات وهمية، والتعديلات تُحفظ في متصفحك فقط.</div>
+
+    <!-- نظرة عامة -->
+    <section class="view" id="overview" hidden>
+      <div class="view-head">
+        <div>
+          <h1>أهلًا بك 👋</h1>
+          <p class="muted">ملخص نشاط المنصة</p>
+        </div>
+        <div class="segmented range" role="radiogroup" aria-label="الفترة">
+          <label><input type="radio" name="range" value="7"><span>7 أيام</span></label>
+          <label><input type="radio" name="range" value="30" checked><span>30 يوم</span></label>
+          <label><input type="radio" name="range" value="90"><span>90 يوم</span></label>
+        </div>
+      </div>
+
+      <div class="tiles" id="tiles"></div>
+
+      <div class="panels">
+        <article class="panel wide">
+          <h2>زيارات الموقع اليومية</h2>
+          <div class="chart" id="visitsChart"></div>
+        </article>
+        <article class="panel wide">
+          <h2>المتاجر المسجلة يوميًا</h2>
+          <div class="chart" id="signupsChart"></div>
+        </article>
+        <article class="panel">
+          <h2>الأكثر نقرًا من الزوار</h2>
+          <div class="bars" id="topStores"></div>
+        </article>
+        <article class="panel">
+          <h2>المتاجر المعتمدة حسب المنطقة</h2>
+          <div class="bars" id="byRegion"></div>
+        </article>
+        <article class="panel">
+          <h2>المتاجر المعتمدة حسب التصنيف</h2>
+          <div class="bars" id="byCategory"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- المتاجر -->
+    <section class="view" id="stores" hidden>
+      <div class="view-head">
+        <div>
+          <h1>المتاجر</h1>
+          <p class="muted" id="storesSummary"></p>
+        </div>
+        <button class="btn btn-ghost" id="exportBtn">⬇️ تصدير Excel</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="status-tabs" id="statusTabs" role="tablist"></div>
+        <div class="toolbar-filters">
+          <label class="search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="search" id="tableSearch" placeholder="اسم المتجر، المالك، الجوال، الإيميل…" aria-label="بحث">
+          </label>
+          <select id="tableRegion" aria-label="المنطقة"><option value="">كل المناطق</option></select>
+          <select id="tableCategory" aria-label="التصنيف"><option value="">كل التصنيفات</option></select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th data-sort="name">المتجر</th>
+              <th data-sort="category">التصنيف</th>
+              <th data-sort="city">الموقع</th>
+              <th data-sort="owner">صاحب المتجر</th>
+              <th data-sort="clicks" class="num">النقرات</th>
+              <th data-sort="created_at" class="sorted desc">تاريخ التسجيل</th>
+              <th data-sort="status">الحالة</th>
+              <th><span class="sr-only">إجراءات</span></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div class="status" id="tableEmpty" hidden></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- تفاصيل متجر -->
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="drawer" aria-hidden="true" tabindex="-1"></aside>
+
+  <div class="tooltip" id="tooltip" role="status" hidden></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js" integrity="sha384-ysv13JVP3fufiEXfjML9OdCa/rRbMJvUBOWyor82wfuK8INNZAvmbxHgKIHi+oqz" crossorigin="anonymous"></script>
+  <script type="module" src="assets/js/admin.js"></script>
+</body>
+</html>

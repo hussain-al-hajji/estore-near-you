@@ -1,5 +1,5 @@
 import { REGIONS, CATEGORIES, CATEGORY_ICONS, DELIVERY, DELIVERY_ICONS, LOCATION_TYPES } from './constants.js';
-import { fetchStores, isDemo } from './api.js';
+import { fetchStores, isDemo, logEvent } from './api.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import {
   escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage,
@@ -72,7 +72,7 @@ function socialLinks(s) {
   if (s.tiktok) links.push(['tiktok', 'تيك توك', `https://www.tiktok.com/@${encodeURIComponent(s.tiktok)}`]);
   if (s.whatsapp) links.push(['whatsapp', 'واتساب', `https://wa.me/${encodeURIComponent(s.whatsapp)}`]);
   return links.map(([key, label, href]) =>
-    `<a class="icon-btn" href="${href}" target="_blank" rel="noopener" title="${label}" aria-label="${label}">${ICONS[key]}</a>`).join('');
+    `<a class="icon-btn" href="${href}" target="_blank" rel="noopener" title="${label}" aria-label="${label}" data-click="${escapeHtml(s.id)}">${ICONS[key]}</a>`).join('');
 }
 
 function avatarTheme(name) {
@@ -110,7 +110,7 @@ function cardHtml(s) {
       ${s.description ? `<p class="desc">${escapeHtml(s.description)}</p>` : ''}
       ${delivery.length ? `<p class="delivery">${delivery.map(d => `<span>${DELIVERY_ICONS[d]} ${DELIVERY[d]}</span>`).join('')}</p>` : ''}
       <div class="actions">
-        ${url ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener">زيارة المتجر ↗</a>` : ''}
+        ${url ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">زيارة المتجر ↗</a>` : ''}
         <button type="button" class="btn btn-ghost btn-sm" data-action="locate">على الخريطة</button>
         <span class="social">${socialLinks(s)}</span>
       </div>
@@ -122,7 +122,7 @@ function popupHtml(s) {
   return `<div class="popup">
     <strong>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.name)}</strong>
     <span>${escapeHtml(s.category)} · ${escapeHtml(s.city)}</span>
-    ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">زيارة المتجر ↗</a>` : ''}
+    ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">زيارة المتجر ↗</a>` : ''}
   </div>`;
 }
 
@@ -240,6 +240,20 @@ els.nearMe.addEventListener('click', () => {
     alert('ما قدرنا نوصل لموقعك. اسمح للموقع من إعدادات المتصفح، أو اختر مدينتك من القائمة.');
   }, { enableHighAccuracy: true, timeout: 10000 });
 });
+
+// إحصائيات لوحة التحكم: زيارة واحدة لكل جلسة، ونقرة لكل فتح متجر
+document.addEventListener('click', e => {
+  const link = e.target.closest('a[data-click]');
+  if (link) logEvent('store_click', link.dataset.click);
+});
+try {
+  if (!sessionStorage.getItem('dukkan.visited')) {
+    sessionStorage.setItem('dukkan.visited', '1');
+    logEvent('visit');
+  }
+} catch {
+  logEvent('visit');
+}
 
 async function init() {
   const savedRegion = storage('dukkan.region');
