@@ -20,6 +20,8 @@ const PUBLIC_COLUMNS = [
   'whatsapp', 'delivery', 'region', 'city', 'district', 'lat', 'lng', 'approximate',
   'entity_type', 'snapchat', 'store_locations(lat,lng,region,city,district,position)',
 ].join(',');
+// أعمدة قاعدة البيانات قبل الترحيل 002، حتى لا يتعطل الموقع إذا لم يُشغَّل الترحيل بعد
+const LEGACY_COLUMNS = PUBLIC_COLUMNS.split(',').slice(0, 17).join(',');
 
 function headers() {
   const key = CONFIG.supabaseAnonKey;
@@ -66,11 +68,13 @@ export async function fetchSettings() {
 
 export async function fetchStores() {
   if (LIVE) {
-    const res = await fetch(
-      `${CONFIG.supabaseUrl}/rest/v1/stores?select=${PUBLIC_COLUMNS}&status=eq.approved&order=created_at.desc`,
+    const get = columns => fetch(
+      `${CONFIG.supabaseUrl}/rest/v1/stores?select=${columns}&status=eq.approved&order=created_at.desc`,
       { headers: headers() },
     );
-    if (!res.ok) throw new Error(`تعذر تحميل المتاجر (${res.status})`);
+    let res = await get(PUBLIC_COLUMNS);
+    if (!res.ok) res = await get(LEGACY_COLUMNS);
+    if (!res.ok) throw new Error('ما قدرنا نحمّل المتاجر الحين، حدّث الصفحة بعد شوي.');
     return res.json();
   }
   // نعرض الطلبات المعلقة أيضًا (بشارة) حتى تجرب المسار كاملًا

@@ -14,7 +14,8 @@ const els = {
   subtitle: $('subtitle'), status: $('status'), geoNote: $('geoNote'),
 };
 
-const state = { stores: [], userLoc: null, selectedId: null, category: '' };
+// gate: قبل السماح بالموقع أو اختيار مدينة/فلتر، نعرض طلب تفعيل الموقع بدل القائمة
+const state = { stores: [], userLoc: null, selectedId: null, category: '', gate: true, geoDenied: false };
 const markers = new Map();
 
 const map = createMap('map');
@@ -156,19 +157,39 @@ function popupHtml(s, loc) {
   </div>`;
 }
 
+function gateHtml() {
+  const browseAll = '<span class="gate-or">أو اختر منطقتك ومدينتك من الأعلى، أو <button type="button" class="link-btn" data-action="browse-all">تصفح كل المتاجر</button></span>';
+  if (state.geoDenied) {
+    return `<span class="big">🔒</span><strong>الموقع مقفل في متصفحك</strong>
+      <span>عشان تطلع لك المتاجر القريبة، اسمح للموقع من إعدادات المتصفح (اضغط على القفل 🔒 جنب الرابط ← الموقع ← سماح)، ثم حدّث الصفحة.</span>${browseAll}`;
+  }
+  return `<span class="big">📍</span><strong>فعّل الموقع عشان تطلع لك المتاجر القريبة منك</strong>
+    <span>نستخدم موقعك بس لترتيب المتاجر حسب المسافة، وما نحفظه.</span>
+    <button type="button" class="btn btn-primary btn-pop" data-action="locate-me">📍 تفعيل الموقع</button>${browseAll}`;
+}
+
+function gateOff() {
+  state.gate = false;
+}
+
 function render({ fit = false } = {}) {
   const rows = filtered();
-  els.count.textContent = storesCountLabel(rows.length);
-  els.subtitle.textContent = state.userLoc ? 'مرتبة من الأقرب لك' : (els.city.value || els.region.value || 'في كل المملكة');
-  els.list.innerHTML = rows.map(cardHtml).join('');
+  const gated = state.gate && !state.userLoc;
+  els.count.textContent = gated ? '📍 المتاجر القريبة منك' : storesCountLabel(rows.length);
+  els.subtitle.textContent = gated ? 'فعّل موقعك، أو اختر منطقتك ومدينتك'
+    : state.userLoc ? 'مرتبة من الأقرب لك' : (els.city.value || els.region.value || 'في كل المملكة');
+  els.list.innerHTML = gated ? '' : rows.map(cardHtml).join('');
   els.list.querySelectorAll('.avatar img').forEach(img => img.addEventListener('error', () => {
     const avatar = img.parentElement;
     avatar.classList.add('avatar-violet');
     avatar.textContent = img.dataset.initial;
   }, { once: true }));
 
-  els.status.hidden = rows.length > 0;
-  if (!rows.length && state.userLoc && els.radius.value) {
+  els.status.hidden = rows.length > 0 && !gated;
+  els.status.classList.toggle('gate', gated);
+  if (gated) {
+    els.status.innerHTML = gateHtml();
+  } else if (!rows.length && state.userLoc && els.radius.value) {
     els.status.innerHTML = `<span class="big">📍</span><strong>ما فيه متاجر خلال ${escapeHtml(els.radius.value)} كم منك</strong><span>وسّع المسافة أو تصفح كل المتاجر.</span><button type="button" class="btn btn-primary btn-sm" data-action="widen">وسّع البحث</button>`;
   } else if (!rows.length) {
     els.status.innerHTML = state.stores.length
@@ -226,6 +247,7 @@ els.list.addEventListener('keydown', e => {
 els.chips.addEventListener('click', e => {
   const chip = e.target.closest('.chip');
   if (!chip) return;
+  gateOff();
   state.category = chip.dataset.value;
   els.chips.querySelectorAll('.chip').forEach(c => {
     c.classList.toggle('active', c === chip);
@@ -234,15 +256,30 @@ els.chips.addEventListener('click', e => {
   render({ fit: true });
 });
 
-els.q.addEventListener('input', () => render());
+els.q.addEventListener('input', () => {
+  gateOff();
+  render();
+});
 els.radius.addEventListener('change', () => render({ fit: true }));
-els.entity.addEventListener('change', () => render({ fit: true }));
+els.entity.addEventListener('change', () => {
+  gateOff();
+  render({ fit: true });
+});
+// اختيار منطقة أو مدينة يعني تصفحها: نلغي حد المسافة ونبقي الترتيب حسب القرب
+function clearRadius() {
+  if (state.userLoc) els.radius.value = '';
+}
+
 els.region.addEventListener('change', () => {
+  gateOff();
+  clearRadius();
   updateCities();
   render({ fit: true });
   storage('dukkan.region', els.region.value);
 });
 els.city.addEventListener('change', () => {
+  gateOff();
+  clearRadius();
   const region = REGIONS.find(r => r.name === els.region.value);
   const city = region?.cities.find(c => c.name === els.city.value);
   render({ fit: !city });
@@ -321,7 +358,13 @@ els.nearMe.addEventListener('click', async () => {
       showGeoNote(`📍 تم تحديد موقعك (${accuracyLabel(best.accuracy)})`, 'ok', true);
     }
   } catch (err) {
-    showGeoNote(geoErrorMessage(err), 'warn');
+    if (err?.code === 1) {
+      state.geoDenied = true;
+      showGeoNote('');
+      render();
+    } else {
+      showGeoNote(geoErrorMessage(err), 'warn');
+    }
   } finally {
     els.nearMe.disabled = false;
     els.nearMe.innerHTML = nearMeLabel;
@@ -329,9 +372,16 @@ els.nearMe.addEventListener('click', async () => {
 });
 
 els.status.addEventListener('click', e => {
-  if (!e.target.closest('[data-action="widen"]')) return;
-  els.radius.value = '';
-  render({ fit: true });
+  const action = e.target.closest('[data-action]')?.dataset.action;
+  if (action === 'widen') {
+    els.radius.value = '';
+    render({ fit: true });
+  } else if (action === 'locate-me') {
+    els.nearMe.click();
+  } else if (action === 'browse-all') {
+    gateOff();
+    render({ fit: true });
+  }
 });
 
 // إحصائيات لوحة التحكم: زيارة واحدة لكل جلسة، ونقرة لكل فتح متجر
@@ -351,12 +401,29 @@ try {
 async function init() {
   const savedRegion = storage('dukkan.region');
   if (savedRegion && REGIONS.some(r => r.name === savedRegion)) {
+    gateOff();
     els.region.value = savedRegion;
     updateCities();
     const savedCity = storage('dukkan.city');
     if (savedCity && [...els.city.options].some(o => o.value === savedCity)) els.city.value = savedCity;
   }
+
+  // إذا سبق وسمح بالموقع نحدده تلقائيًا، وإذا رفضه نوضح له كيف يفعّله
+  let permission = null;
+  try {
+    permission = await navigator.permissions?.query({ name: 'geolocation' });
+  } catch { /* متصفح لا يدعم الاستعلام */ }
+  if (permission) {
+    state.geoDenied = permission.state === 'denied';
+    permission.onchange = () => {
+      state.geoDenied = permission.state === 'denied';
+      if (permission.state === 'granted' && !state.userLoc) els.nearMe.click();
+      else render();
+    };
+  }
+
   await load({ fit: true });
+  if (permission?.state === 'granted' && !state.userLoc) els.nearMe.click();
 }
 
 async function load({ fit = false } = {}) {

@@ -527,3 +527,10 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 }
 .search-results button:hover, .search-results button:focus-visible { background: var(--violet-soft); outline: none; }
 .more-locs { display: inline-block; margin-inline-start: 4px; font-size: 12px; font-weight: 600; color: var(--violet); }
+
+/* ---------- طلب تفعيل الموقع ---------- */
+.status.gate { padding: 36px 16px; max-width: 520px; margin: 0 auto; }
+.status.gate strong { font-size: 19px; }
+.status.gate .btn { margin-top: 10px; padding: 11px 26px; font-size: 16px; }
+.gate-or { margin-top: 10px; font-size: 14px; }
+.link-btn { border: none; background: none; padding: 0; font: inherit; color: var(--violet); font-weight: 600; text-decoration: underline; cursor: pointer; }
