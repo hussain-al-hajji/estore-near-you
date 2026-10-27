@@ -16,10 +16,12 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-function contactLink(href, icon, label, text) {
-  const a = el('a', { href, class: 'footer-contact', 'aria-label': label, target: href.startsWith('http') ? '_blank' : '_self', rel: 'noopener' });
-  a.append(el('span', { class: 'footer-icon', html: icon }), el('span', { text, dir: 'ltr' }));
-  return a;
+// أيقونة فقط: الإيميل والرقم لا يُعرضان كنص، وتظهر التسمية عند التمرير
+function contactIcon(href, icon, label) {
+  return el('a', {
+    href, class: 'footer-icon-btn', title: label, 'aria-label': label,
+    target: href.startsWith('http') ? '_blank' : '_self', rel: 'noopener', html: icon,
+  });
 }
 
 export function renderFooters() {
@@ -33,8 +35,10 @@ export function renderFooters() {
       addr.append(el('span', { class: 'footer-icon', html: PIN_ICON }), el('span', { text: f.address }));
       contacts.append(addr);
     }
-    if (email) contacts.append(contactLink(`mailto:${email}`, MAIL_ICON, 'راسلنا على الإيميل', email));
-    if (wa) contacts.append(contactLink(`https://wa.me/${wa}`, WA_ICON, 'تواصل معنا على واتساب', `+${wa}`));
+    const icons = el('div', { class: 'footer-icons' });
+    if (email) icons.append(contactIcon(`mailto:${email}`, MAIL_ICON, 'راسلنا على الإيميل'));
+    if (wa) icons.append(contactIcon(`https://wa.me/${wa}`, WA_ICON, 'تواصل معنا على واتساب'));
+    if (icons.childElementCount) contacts.append(el('span', { class: 'footer-reach', text: 'تواصل معنا' }), icons);
 
     const brand = el('div', { class: 'footer-brand' }, [
       el('img', { src: 'assets/img/logo-white.svg', alt: 'دكان الحي', height: '40' }),

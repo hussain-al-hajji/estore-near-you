@@ -464,12 +464,18 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .footer-side { display: flex; flex-direction: column; gap: 18px; }
 .footer-contacts { display: flex; flex-direction: column; gap: 10px; }
 .footer-contact { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-size: 14.5px; width: fit-content; }
-a.footer-contact:hover span:last-child { text-decoration: underline; }
 .footer-icon {
   display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
   background: rgb(255 255 255 / 10%); flex: 0 0 auto; transition: background .15s;
 }
-a.footer-contact:hover .footer-icon { background: var(--lime); color: var(--ink); }
+.footer-reach { font-size: 13px; color: rgb(255 255 255 / 60%); margin-top: 4px; }
+.footer-icons { display: flex; gap: 10px; }
+.footer-icon-btn {
+  display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: 50%;
+  background: rgb(255 255 255 / 10%); color: #fff; transition: background .15s, color .15s, transform .15s;
+}
+.footer-icon-btn:hover, .footer-icon-btn:focus-visible { background: var(--lime); color: var(--ink); transform: translateY(-2px); outline: none; }
+.footer-icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .footer-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .footer-links { display: flex; gap: 16px; flex-wrap: wrap; }
 .footer-links a { color: var(--lime); text-decoration: none; font-weight: 600; font-size: 14px; }
