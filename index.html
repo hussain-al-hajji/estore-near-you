@@ -145,14 +145,14 @@
               <span>رابط المتجر <small>(إن وجد)</small></span>
               <input name="url" inputmode="url" placeholder="mystore.com أو رابط سلة/زد" dir="ltr">
             </label>
-            <label class="field">
-              <span>التصنيف <b>*</b></span>
-              <select name="category" required><option value="">اختر التصنيف</option></select>
-            </label>
             <label class="field" data-field="logo_url">
               <span>رابط الشعار <small class="opt">(اختياري)</small></span>
               <input name="logo_url" inputmode="url" placeholder="https://…/logo.png" dir="ltr">
             </label>
+            <div class="field full" id="categoryField">
+              <span>مجالات المتجر <b>*</b> <small>اختر من 1 إلى 5، وأول اختيار هو مجالك الرئيسي ⭐</small></span>
+              <div class="toggles cat-toggles" id="categoryToggles" role="group" aria-label="مجالات المتجر"></div>
+            </div>
             <label class="field full" data-field="description">
               <span>نبذة عن المتجر <small class="opt">(اختياري)</small></span>
               <textarea name="description" rows="3" maxlength="500" placeholder="وش تبيع؟ وش يميزك؟ ✨ (حتى 500 حرف)"></textarea>

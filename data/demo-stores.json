@@ -21,7 +21,11 @@
     "lat": 26.547,
     "lng": 50.006,
     "approximate": true,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "أغذية وحلويات",
+      "هدايا وورود"
+    ]
   },
   {
     "id": "demo-02",
@@ -45,7 +49,11 @@
     "lat": 26.483,
     "lng": 50.042,
     "approximate": false,
-    "entity_type": "company"
+    "entity_type": "company",
+    "categories": [
+      "قهوة ومشروبات",
+      "أغذية وحلويات"
+    ]
   },
   {
     "id": "demo-03",
@@ -68,7 +76,10 @@
     "lat": 26.41,
     "lng": 50.07,
     "approximate": false,
-    "entity_type": "company"
+    "entity_type": "company",
+    "categories": [
+      "عطور وتجميل"
+    ]
   },
   {
     "id": "demo-04",
@@ -92,7 +103,12 @@
     "lat": 26.29,
     "lng": 50.2,
     "approximate": false,
-    "entity_type": "company"
+    "entity_type": "company",
+    "categories": [
+      "هدايا وورود",
+      "منزل وديكور",
+      "عطور وتجميل"
+    ]
   },
   {
     "id": "demo-05",
@@ -116,7 +132,10 @@
     "lat": 25.38,
     "lng": 49.585,
     "approximate": false,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "حرف ومنتجات يدوية"
+    ]
   },
   {
     "id": "demo-06",
@@ -139,7 +158,10 @@
     "lat": 25.41,
     "lng": 49.58,
     "approximate": false,
-    "entity_type": "company"
+    "entity_type": "company",
+    "categories": [
+      "أغذية وحلويات"
+    ]
   },
   {
     "id": "demo-07",
@@ -163,7 +185,10 @@
     "lat": 24.81,
     "lng": 46.61,
     "approximate": false,
-    "entity_type": "company"
+    "entity_type": "company",
+    "categories": [
+      "كتب وقرطاسية"
+    ]
   },
   {
     "id": "demo-08",
@@ -187,7 +212,10 @@
     "lat": 24.84,
     "lng": 46.66,
     "approximate": false,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "ملابس وأزياء"
+    ]
   },
   {
     "id": "demo-09",
@@ -210,7 +238,10 @@
     "lat": 24.82,
     "lng": 46.64,
     "approximate": false,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "رياضة ولياقة"
+    ]
   },
   {
     "id": "demo-10",
@@ -233,7 +264,10 @@
     "lat": 21.56,
     "lng": 39.16,
     "approximate": false,
-    "entity_type": "company"
+    "entity_type": "company",
+    "categories": [
+      "إلكترونيات وإكسسوارات"
+    ]
   },
   {
     "id": "demo-11",
@@ -257,7 +291,10 @@
     "lat": 21.59,
     "lng": 39.11,
     "approximate": false,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "منزل وديكور"
+    ]
   },
   {
     "id": "demo-12",
@@ -280,7 +317,10 @@
     "lat": 18.22,
     "lng": 42.51,
     "approximate": false,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "أغذية وحلويات"
+    ]
   },
   {
     "id": "demo-13",
@@ -304,7 +344,10 @@
     "lat": 24.48,
     "lng": 39.58,
     "approximate": false,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "أطفال وألعاب"
+    ]
   },
   {
     "id": "demo-14",
@@ -327,6 +370,9 @@
     "lat": 26.35,
     "lng": 43.96,
     "approximate": true,
-    "entity_type": "freelance"
+    "entity_type": "freelance",
+    "categories": [
+      "صحة وعناية"
+    ]
   }
 ]

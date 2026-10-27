@@ -64,3 +64,6 @@ export const DELIVERY_ICONS = { local: '🛵', national: '🚚', pickup: '🤝' 
 export const SA_BOUNDS = { minLat: 16, maxLat: 32.5, minLng: 34.4, maxLng: 55.7 };
 export const SA_CENTER = [23.9, 45.1];
 export const SA_ZOOM = 5;
+
+// الحد الأقصى لمجالات المتجر الواحد (يطابق قاعدة البيانات)
+export const MAX_CATEGORIES = 5;

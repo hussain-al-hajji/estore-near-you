@@ -4,7 +4,7 @@ import { fetchStores, isDemo, logEvent, logImpressions } from './api.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
-  escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage, storeLocations, nearestCity,
+  escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage, storeLocations, nearestCity, storeCategories,
 } from './utils.js';
 
 const $ = id => document.getElementById(id);
@@ -62,8 +62,8 @@ function filtered() {
   let rows = state.stores
     .filter(s =>
       (!els.entity.value || s.entity_type === els.entity.value)
-      && (!state.category || s.category === state.category)
-      && (!q || `${s.name} ${s.description || ''} ${s.category} ${s.locs.map(l => `${l.city} ${l.district || ''}`).join(' ')}`.toLowerCase().includes(q)))
+      && (!state.category || s.cats.includes(state.category))
+      && (!q || `${s.name} ${s.description || ''} ${s.cats.join(' ')} ${s.locs.map(l => `${l.city} ${l.district || ''}`).join(' ')}`.toLowerCase().includes(q)))
     .map(s => ({ ...s, shownLocs: s.locs.filter(l => (!region || l.region === region) && (!city || l.city === city)) }))
     .filter(s => s.shownLocs.length);
   if (state.userLoc) {
@@ -134,7 +134,7 @@ function cardHtml(s) {
         ${s.pending ? '<span class="badge badge-pending">قيد المراجعة</span>' : ''}
       </div>
       <p class="tags">
-        <span class="tag">${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.category)}</span>
+        ${s.cats.map(c => `<span class="tag">${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span>`).join('')}
         ${ENTITY_TYPES[s.entity_type] ? `<span class="tag tag-entity">${ENTITY_TYPES[s.entity_type].icon} ${ENTITY_TYPES[s.entity_type].label}</span>` : ''}
         ${s.approximate ? '<span class="tag">📍 موقع تقريبي</span>' : ''}
       </p>
@@ -152,7 +152,7 @@ function popupHtml(s, loc) {
   const main = primaryLink(s);
   return `<div class="popup">
     <strong>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.name)}</strong>
-    <span>${escapeHtml(s.category)} · ${escapeHtml(loc.city)}${loc.district ? ` · ${escapeHtml(loc.district)}` : ''}</span>
+    <span>${escapeHtml(s.cats.join('، '))} · ${escapeHtml(loc.city)}${loc.district ? ` · ${escapeHtml(loc.district)}` : ''}</span>
     ${main ? `<a href="${escapeHtml(main.href)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">${main.label}</a>` : ''}
   </div>`;
 }
@@ -455,7 +455,7 @@ async function init() {
 
 async function load({ fit = false } = {}) {
   try {
-    state.stores = (await fetchStores()).map(s => ({ ...s, id: String(s.id), locs: storeLocations(s) }));
+    state.stores = (await fetchStores()).map(s => ({ ...s, id: String(s.id), locs: storeLocations(s), cats: storeCategories(s) }));
     render({ fit });
   } catch (err) {
     els.count.textContent = 'تعذر التحميل';

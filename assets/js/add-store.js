@@ -1,4 +1,4 @@
-import { REGIONS, DELIVERY, DELIVERY_ICONS, SA_CENTER, SA_ZOOM } from './constants.js';
+import { REGIONS, DELIVERY, DELIVERY_ICONS, SA_CENTER, SA_ZOOM, MAX_CATEGORIES } from './constants.js';
 import {
   CATEGORIES, CATEGORY_ICONS, SETTINGS, priceFor, graceFor, graceLabel, badgeText, pricingText, isLaunchPeriod, formatDate,
 } from './settings.js';
@@ -7,7 +7,7 @@ import { createOwnerBackend } from './owner-data.js';
 import { createMap, pinIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage, searchPlaces, reverseGeocode } from './geo.js';
 import {
-  inSaudi, nearestCity, parseLocation, normalizeUrl, normalizeHandle, normalizePhone, safeUrl, escapeHtml,
+  inSaudi, nearestCity, parseLocation, normalizeUrl, normalizeHandle, normalizePhone, safeUrl, escapeHtml, storeCategories,
 } from './utils.js';
 
 const form = document.getElementById('storeForm');
@@ -48,10 +48,7 @@ function applyFormSettings() {
     el.textContent = `${priceFor(type)} ر.س سنويًا · مهلة السداد ${graceLabel(graceFor(type))}${launch}`;
   }
 
-  const current = f.category.value;
-  f.category.length = 1;
-  for (const c of CATEGORIES) f.category.add(new Option(`${CATEGORY_ICONS[c]}  ${c}`, c));
-  if (CATEGORIES.includes(current)) f.category.value = current;
+  renderCategories();
 
   for (const wrap of form.querySelectorAll('[data-field]')) {
     const cfg = fs.fields[wrap.dataset.field] || { visible: true, required: false };
@@ -65,6 +62,34 @@ function applyFormSettings() {
     }
   }
 }
+
+// ---- المجالات (اختيار متعدد بالترتيب، الأول هو الرئيسي) ----
+let chosenCats = [];
+
+function renderCategories() {
+  const all = [...CATEGORIES, ...chosenCats.filter(c => !CATEGORIES.includes(c))];
+  $('categoryToggles').innerHTML = all.map(c => {
+    const i = chosenCats.indexOf(c);
+    return `<label class="toggle${i === 0 ? ' primary' : ''}"><input type="checkbox" name="categories" value="${escapeHtml(c)}"${i !== -1 ? ' checked' : ''}><span>${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span></label>`;
+  }).join('');
+}
+
+$('categoryToggles').addEventListener('change', e => {
+  const value = e.target.value;
+  if (e.target.checked) {
+    if (chosenCats.length >= MAX_CATEGORIES) {
+      e.target.checked = false;
+      formError(`تقدر تختار ${MAX_CATEGORIES} مجالات بحد أقصى.`);
+      return;
+    }
+    chosenCats.push(value);
+  } else {
+    chosenCats = chosenCats.filter(c => c !== value);
+  }
+  formError('');
+  renderCategories();
+  renderMarkers();
+});
 
 function updateEntity() {
   const type = f.entity_type.value;
@@ -187,7 +212,7 @@ function renderMarkers() {
     if (loc.lat === null) return null;
     const m = L.marker([loc.lat, loc.lng], {
       draggable: true,
-      icon: pinIcon('store', locations.length > 1 ? String(i + 1) : CATEGORY_ICONS[f.category.value]),
+      icon: pinIcon('store', locations.length > 1 ? String(i + 1) : CATEGORY_ICONS[chosenCats[0]]),
       zIndexOffset: i === active ? 1000 : 0,
       opacity: i === active ? 1 : 0.75,
     }).addTo(map);
@@ -288,7 +313,6 @@ $('locTabs').addEventListener('click', e => {
 });
 
 map.on('click', e => setLocation(e.latlng.lat, e.latlng.lng, { fly: false }));
-f.category.addEventListener('change', renderMarkers);
 
 // ---- البحث عن مكان أو لصق رابط ----
 function hideResults() {
@@ -403,6 +427,9 @@ form.addEventListener('submit', async e => {
     const label = invalid.closest('.field, .check')?.querySelector('span')?.textContent.replace('*', '').trim();
     return formError(`تأكد من حقل: ${label || 'الحقول المطلوبة'}`, invalid);
   }
+  if (!chosenCats.length) {
+    return formError('اختر مجال واحد على الأقل لمتجرك.', $('categoryToggles'));
+  }
   const districtRequired = SETTINGS.form.fields.district?.visible !== false && SETTINGS.form.fields.district?.required;
   const missing = locations.findIndex(l => l.lat === null || !l.region || !l.city || (districtRequired && !l.district.trim()));
   if (missing !== -1) {
@@ -436,7 +463,8 @@ form.addEventListener('submit', async e => {
   const payload = {
     name: f.name.value.trim(),
     url: f.url.value || null,
-    category: f.category.value,
+    category: chosenCats[0],
+    categories: [...chosenCats],
     entity_type: f.entity_type.value,
     description: text('description') || null,
     logo_url: text('logo_url') || null,
@@ -533,8 +561,8 @@ async function startEdit() {
   updateEntity();
   f.name.value = s.name || '';
   f.url.value = s.url || '';
-  if (s.category && !CATEGORIES.includes(s.category)) f.category.add(new Option(s.category, s.category));
-  f.category.value = s.category || '';
+  chosenCats = [...storeCategories(s)];
+  renderCategories();
   f.logo_url.value = s.logo_url || '';
   f.description.value = s.description || '';
   form.querySelectorAll('input[name="delivery"]').forEach(c => { c.checked = (s.delivery || []).includes(c.value); });
@@ -571,6 +599,8 @@ function exitEdit() {
 
 function resetForm() {
   form.reset();
+  chosenCats = [];
+  renderCategories();
   form.classList.remove('validated');
   updateCities();
   updateEntity();

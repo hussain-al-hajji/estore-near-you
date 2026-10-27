@@ -130,3 +130,8 @@ export function storeLocations(s) {
     : [{ lat: s.lat, lng: s.lng, region: s.region, city: s.city, district: s.district }];
   return list.map(l => ({ ...l, lat: Number(l.lat), lng: Number(l.lng) }));
 }
+
+// مجالات المتجر (الأول هو الرئيسي)، أو مجاله الوحيد للمتاجر القديمة
+export function storeCategories(s) {
+  return s.categories?.length ? s.categories : [s.category].filter(Boolean);
+}

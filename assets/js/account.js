@@ -3,7 +3,7 @@ import { CATEGORY_ICONS, ENTITY_TYPES, graceLabel } from './settings.js';
 import { createOwnerBackend } from './owner-data.js';
 import { columnChart, barList, formatNumber, formatCompact } from './charts.js';
 import { billingInfo, BILLING_LABELS, formatDate } from './billing.js';
-import { escapeHtml, storage } from './utils.js';
+import { escapeHtml, storage, storeCategories } from './utils.js';
 
 const $ = id => document.getElementById(id);
 const backend = await createOwnerBackend();
@@ -185,7 +185,7 @@ function render() {
         </div>
         ${editStatus(edit)}
         <dl class="owner-info">
-          <div><dt>التصنيف</dt><dd>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.category)}</dd></div>
+          <div><dt>المجالات</dt><dd>${storeCategories(s).map(c => `${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}`).join('، ')}</dd></div>
           <div><dt>نوع النشاط</dt><dd>${entity ? `${entity.icon} ${entity.label}` : '—'}</dd></div>
           <div><dt>الرابط</dt><dd dir="ltr">${s.url ? escapeHtml(s.url) : '—'}</dd></div>
           <div><dt>${locs.length > 1 ? `المواقع (${locs.length})` : 'الموقع'}</dt><dd>${locs.join('<br>')}</dd></div>

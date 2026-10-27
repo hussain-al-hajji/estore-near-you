@@ -596,3 +596,7 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
   .owner-bars { grid-template-columns: 1fr; }
   .owner-info > div { grid-template-columns: 7em 1fr; }
 }
+
+/* ---------- مجالات المتجر ---------- */
+.cat-toggles .toggle span { font-size: 14px; padding: 6px 14px; }
+.cat-toggles .toggle.primary input:checked + span { box-shadow: 3px 3px 0 var(--amber, #e0a03a), 0 0 0 2px var(--lime); }

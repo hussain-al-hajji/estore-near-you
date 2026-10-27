@@ -8,7 +8,7 @@ import { createBackend } from './admin-data.js';
 import { createMap, pinIcon } from './map.js';
 import { columnChart, barList, formatNumber, formatCompact } from './charts.js';
 import { billingInfo, BILLING_LABELS, graceRemainingText, fillTemplate, formatDate } from './billing.js';
-import { escapeHtml, safeUrl, dayKey, storeLocations } from './utils.js';
+import { escapeHtml, safeUrl, dayKey, storeLocations, storeCategories } from './utils.js';
 
 const $ = id => document.getElementById(id);
 const backend = await createBackend();
@@ -311,7 +311,9 @@ function renderOverview() {
     return [...m].sort((a, b) => b[1] - a[1]);
   };
   barList($('byRegion'), count('region').map(([label, value]) => ({ label, value })));
-  barList($('byCategory'), count('category').map(([label, value]) => ({ label, value, icon: CATEGORY_ICONS[label] })));
+  const byCat = new Map();
+  for (const s of approved) for (const c of storeCategories(s)) byCat.set(c, (byCat.get(c) || 0) + 1);
+  barList($('byCategory'), [...byCat].sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value, icon: CATEGORY_ICONS[label] })));
 }
 
 document.querySelectorAll('input[name="range"]').forEach(r => r.addEventListener('change', () => {
@@ -354,7 +356,7 @@ function filteredStores() {
   const rows = state.stores.filter(s =>
     (state.status === 'all' || s.status === state.status || (state.status === 'edits' && editFor(s.id)))
     && (!region || storeLocations(s).some(l => l.region === region))
-    && (!category || s.category === category)
+    && (!category || storeCategories(s).includes(category))
     && billingMatches(s, billing)
     && (!q || [s.name, s.url, s.city, s.district, s.owner?.owner_name, s.owner?.email, s.owner?.phone, localPhone(s.owner?.phone)]
       .some(v => v && String(v).toLowerCase().includes(q))));
@@ -401,7 +403,7 @@ function renderTable() {
             <span><strong>${escapeHtml(s.name)}</strong><small dir="ltr">${escapeHtml(host)}</small></span>
           </div>
         </td>
-        <td class="nowrap"><span>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.category)}</span><small>${entity ? `${entity.icon} ${entity.label}` : ''}</small></td>
+        <td class="nowrap"><span>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.category)}${storeCategories(s).length > 1 ? ` <em class="more-cats" title="${escapeHtml(storeCategories(s).join('، '))}">+${storeCategories(s).length - 1}</em>` : ''}</span><small>${entity ? `${entity.icon} ${entity.label}` : ''}</small></td>
         <td class="nowrap"><span>${escapeHtml(s.city)}${s.district ? ` · ${escapeHtml(s.district)}` : ''}</span><small>${storeLocations(s).length > 1 ? `📍 ${storeLocations(s).length} مواقع` : `📍 ${escapeHtml(s.region)}`}</small></td>
         <td class="nowrap"><span>${escapeHtml(s.owner?.owner_name || '—')}${s.owner?.registrant_role === 'employee' ? ' <em class="role-tag">موظف</em>' : ''}</span>${phone ? `<small><a href="https://wa.me/${escapeHtml(phone)}" target="_blank" rel="noopener" title="واتساب" dir="ltr">${escapeHtml(localPhone(phone))}</a></small>` : ''}</td>
         <td class="num">${formatNumber(state.clicks.get(s.id) || 0)}</td>
@@ -594,7 +596,7 @@ function editSection(s) {
   const rows = [
     ['الاسم', s.name, d.name],
     ['الرابط', s.url, d.url || null],
-    ['التصنيف', s.category, d.category],
+    ['المجالات', storeCategories(s).join('، '), (d.categories || [d.category]).join('، ')],
     ['نوع النشاط', ENTITY_TYPES[s.entity_type]?.label, ENTITY_TYPES[d.entity_type]?.label],
     ['النبذة', s.description, d.description],
     ['الشعار', s.logo_url, d.logo_url],
@@ -709,7 +711,7 @@ function openDrawer(id) {
     <section class="drawer-section">
       <h3>🏪 بيانات المتجر</h3>
       <dl>
-        ${infoRow('التصنيف', `${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.category)}`)}
+        ${infoRow(storeCategories(s).length > 1 ? 'المجالات' : 'المجال', storeCategories(s).map((c, i) => `${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}`).join('<br>'))}
         ${infoRow('النبذة', escapeHtml(s.description || ''))}
         ${infoRow('التوصيل', (s.delivery || []).map(d => `${DELIVERY_ICONS[d]} ${DELIVERY[d]}`).join('، '))}
         ${infoRow('التواصل', socials.map(([label, href, text]) => `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${label}: <span dir="ltr">${escapeHtml(text)}</span></a>`).join('<br>'))}
@@ -971,7 +973,7 @@ function csvCell(v) {
 $('exportBtn').addEventListener('click', () => {
   const bill = s => (billable(s) ? billingInfo(s) : null);
   const cols = [
-    ['اسم المتجر', s => s.name], ['الرابط', s => s.url], ['التصنيف', s => s.category],
+    ['اسم المتجر', s => s.name], ['الرابط', s => s.url], ['المجال الرئيسي', s => s.category], ['كل المجالات', s => storeCategories(s).join(' / ')],
     ['نوع النشاط', s => ENTITY_TYPES[s.entity_type]?.label],
     ['المنطقة', s => s.region], ['المدينة', s => s.city], ['الحي', s => s.district],
     ['عدد المواقع', s => storeLocations(s).length], ['تقريبي', s => (s.approximate ? 'نعم' : 'لا')],

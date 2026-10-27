@@ -23,7 +23,7 @@ export const DEMO_KEYS = DEMO;
 const PUBLIC_COLUMNS = [
   'id', 'name', 'url', 'category', 'description', 'logo_url', 'instagram', 'x_handle', 'tiktok',
   'whatsapp', 'delivery', 'region', 'city', 'district', 'lat', 'lng', 'approximate',
-  'entity_type', 'snapchat', 'store_locations(lat,lng,region,city,district,position)',
+  'entity_type', 'snapchat', 'store_locations(lat,lng,region,city,district,position)', 'categories',
 ].join(',');
 // أعمدة قاعدة البيانات قبل الترحيل 002، حتى لا يتعطل الموقع إذا لم يُشغَّل الترحيل بعد
 const LEGACY_COLUMNS = PUBLIC_COLUMNS.split(',').slice(0, 17).join(',');
