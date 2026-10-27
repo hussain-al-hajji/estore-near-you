@@ -1,10 +1,10 @@
 import { REGIONS, DELIVERY, DELIVERY_ICONS } from './constants.js';
 import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
-import { fetchStores, isDemo, logEvent } from './api.js';
+import { fetchStores, isDemo, logEvent, logImpressions } from './api.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
-  escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage, storeLocations,
+  escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage, storeLocations, nearestCity,
 } from './utils.js';
 
 const $ = id => document.getElementById(id);
@@ -172,9 +172,36 @@ function gateOff() {
   state.gate = false;
 }
 
+// ---- إحصائيات ظهور المتاجر لأصحابها ----
+// بعد استقرار الفلاتر نرسل دفعة واحدة: المتاجر الظاهرة + كلمة البحث + مدينة الباحث (بدون بيانات شخصية)
+let impressionTimer = null;
+const loggedImpressions = new Set();
+
+function searcherCity() {
+  if (els.city.value) return els.city.value;
+  if (state.userLoc) return nearestCity(state.userLoc.lat, state.userLoc.lng)?.city || '';
+  return els.region.value;
+}
+
+function scheduleImpressions(rows) {
+  clearTimeout(impressionTimer);
+  impressionTimer = setTimeout(() => {
+    const term = els.q.value.trim().toLowerCase().slice(0, 40);
+    const city = searcherCity();
+    const ids = rows.filter(s => !s.pending).slice(0, 30).map(s => s.id).filter(id => {
+      const key = `${id}|${term}|${city}`;
+      if (loggedImpressions.has(key)) return false;
+      loggedImpressions.add(key);
+      return true;
+    });
+    logImpressions(ids, term, city);
+  }, 1500);
+}
+
 function render({ fit = false } = {}) {
   const rows = filtered();
   const gated = state.gate && !state.userLoc;
+  if (!gated) scheduleImpressions(rows);
   els.count.textContent = gated ? '📍 المتاجر القريبة منك' : storesCountLabel(rows.length);
   els.subtitle.textContent = gated ? 'فعّل موقعك، أو اختر منطقتك ومدينتك'
     : state.userLoc ? 'مرتبة من الأقرب لك' : (els.city.value || els.region.value || 'في كل المملكة');

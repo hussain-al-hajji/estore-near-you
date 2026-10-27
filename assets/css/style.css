@@ -534,3 +534,65 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .status.gate .btn { margin-top: 10px; padding: 11px 26px; font-size: 16px; }
 .gate-or { margin-top: 10px; font-size: 14px; }
 .link-btn { border: none; background: none; padding: 0; font: inherit; color: var(--violet); font-weight: 600; text-decoration: underline; cursor: pointer; }
+
+/* ---------- حساب صاحب المتجر ---------- */
+.btn-account { margin-inline-start: auto; }
+.topbar .btn-account + .btn { margin-inline-start: 0; }
+.hero-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.pw-rules { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.pw-rules li {
+  font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: #f3f1fa; color: var(--muted);
+}
+.pw-rules li::before { content: '○ '; }
+.pw-rules li.ok { background: var(--lime-soft); color: #3f5209; }
+.pw-rules li.ok::before { content: '✓ '; font-weight: 700; }
+.edit-notice {
+  margin: 0 0 16px; padding: 12px 16px; border-radius: 14px; background: #fff3d6; color: #6b4700;
+  border: 1px dashed #e0b44a; font-size: 14px;
+}
+.ok-msg { color: #3f7d10; font-size: 14px; font-weight: 500; margin: 6px 0; }
+
+.hero-slim { padding-bottom: 54px; }
+.hero-slim .hero-body { margin-top: 14px; }
+.hero-slim h1 { font-size: clamp(34px, 6vw, 48px); }
+.screen-account .container { margin-top: -30px; }
+.screen-account .panel { margin-bottom: 16px; }
+.owner-login { max-width: 460px; margin: 0 auto 16px; }
+.owner-login h2 { margin: 0 0 14px; }
+.owner-login .field { margin-bottom: 12px; }
+.owner-login-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; font-size: 14px; }
+.owner-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+  padding: 10px 14px; background: var(--card); border-radius: 16px; box-shadow: var(--shadow); font-size: 14px;
+}
+.owner-bar select { width: auto; min-height: 36px; padding: 4px 12px; border-radius: 999px; font-size: 14px; }
+.owner-bar .btn { margin-inline-start: auto; }
+.owner-status {
+  display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; margin-bottom: 16px;
+  border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); border-inline-start: 6px solid var(--violet);
+}
+.owner-status.status-approved { border-color: #7ac70c; }
+.owner-status.status-pending { border-color: #e0b44a; }
+.owner-status.status-suspended, .owner-status.status-rejected { border-color: var(--coral); }
+.owner-status-icon { font-size: 28px; line-height: 1; }
+.owner-status strong { font-size: 16.5px; }
+.owner-status p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.owner-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; margin: 4px 0 8px; }
+.owner-bars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.owner-info { margin: 0; }
+.owner-info > div { display: grid; grid-template-columns: 9em 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 14.5px; }
+.owner-info dt { color: var(--muted); }
+.owner-info dd { margin: 0; overflow-wrap: anywhere; }
+.edit-state { margin: 0 0 10px; padding: 8px 12px; border-radius: 12px; font-size: 14px; }
+.edit-state.pending { background: #fff3d6; color: #6b4700; }
+.edit-state.rejected { background: var(--coral-soft); color: #b8331a; }
+.edit-state.approved { background: var(--lime-soft); color: #3f5209; }
+.owner-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 36px 20px; }
+.owner-empty .big { font-size: 44px; }
+
+@media (max-width: 640px) {
+  .btn-account span { display: none; }
+  .owner-tiles { grid-template-columns: 1fr 1fr !important; }
+  .owner-bars { grid-template-columns: 1fr; }
+  .owner-info > div { grid-template-columns: 7em 1fr; }
+}

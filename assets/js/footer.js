@@ -47,6 +47,7 @@ export function renderFooters() {
     const links = el('nav', { class: 'footer-links', 'aria-label': 'روابط' }, [
       el('a', { href: '#', text: 'تصفح المتاجر' }),
       el('a', { href: '#add', text: 'أضف متجرك' }),
+      el('a', { href: '#account', text: 'دخول أصحاب المتاجر' }),
     ]);
     const disclaimer = SETTINGS.legal.disclaimer
       ? el('p', { class: 'footer-disclaimer' }, [el('strong', { text: '⚖️ إخلاء مسؤولية: ' }), SETTINGS.legal.disclaimer])

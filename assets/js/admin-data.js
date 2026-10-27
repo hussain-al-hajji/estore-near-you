@@ -1,11 +1,11 @@
-import { CONFIG } from './config.js';
-import { isDemo, demoAllStores, DEMO_KEYS } from './api.js';
+import { isDemo, demoAllStores, DEMO_KEYS, demoPerformance, demoApplyEdit } from './api.js';
+import { getClient, authErrorMessage } from './supabase-client.js';
 import { storage, dayKey } from './utils.js';
 import { SETTINGS } from './settings.js';
 import { registrationDay } from './billing.js';
 
-export function createBackend() {
-  return isDemo ? demoBackend() : liveBackend();
+export async function createBackend() {
+  return isDemo ? demoBackend() : liveBackend(await getClient());
 }
 
 function flattenOwner(s) {
@@ -13,8 +13,7 @@ function flattenOwner(s) {
   return { ...rest, owner: (Array.isArray(o) ? o[0] : o) || null };
 }
 
-function liveBackend() {
-  const sb = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
+function liveBackend(sb) {
   const check = ({ data, error }) => {
     if (error) throw new Error(error.message);
     return data;
@@ -27,9 +26,7 @@ function liveBackend() {
     },
     async signIn(email, password) {
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) {
-        throw new Error(/invalid login/i.test(error.message) ? 'البريد أو كلمة المرور غير صحيحة' : error.message);
-      }
+      if (error) throw new Error(authErrorMessage(error.message));
       return { email: data.user.email };
     },
     signOut: () => sb.auth.signOut(),
@@ -45,6 +42,11 @@ function liveBackend() {
     saveSettings: async data => {
       check(await sb.from('site_settings').update({ data, updated_at: new Date().toISOString() }).eq('id', 1));
     },
+    edits: async () => check(await sb.from('store_edits').select('*').eq('status', 'pending')),
+    reviewEdit: async (id, approve, note) => {
+      check(await sb.rpc('admin_review_edit', { p_edit: id, p_approve: approve, p_note: note || null }));
+    },
+    performance: async (id, days) => check(await sb.rpc('store_performance', { p_store: id, p_days: days })),
     adminSettings: async () => check(await sb.from('admin_settings').select('data').eq('id', 1).maybeSingle())?.data || {},
     saveAdminSettings: async data => {
       check(await sb.from('admin_settings').update({ data, updated_at: new Date().toISOString() }).eq('id', 1));
@@ -153,6 +155,15 @@ function demoBackend() {
       await this.update(id, patch);
       return end;
     },
+    edits: async () => (storage(DEMO_KEYS.edits) || []).filter(e => e.status === 'pending'),
+    async reviewEdit(id, approve, note) {
+      const edits = storage(DEMO_KEYS.edits) || [];
+      const edit = edits.find(e => e.id === id);
+      if (approve) await demoApplyEdit(edit);
+      Object.assign(edit, { status: approve ? 'approved' : 'rejected', admin_note: note || null, reviewed_at: new Date().toISOString() });
+      storage(DEMO_KEYS.edits, edits);
+    },
+    performance: async (id, days) => demoPerformance(id, days),
     saveSettings: async data => { storage(DEMO_KEYS.settings, data); },
     adminSettings: async () => storage(DEMO_KEYS.adminSettings) || {},
     saveAdminSettings: async data => { storage(DEMO_KEYS.adminSettings, data); },

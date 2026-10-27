@@ -41,6 +41,7 @@
         <img src="assets/img/logo.svg" alt="دكان الحي" height="40">
       </a>
       <span class="tagline">متاجر أونلاين من حيّك 📍</span>
+      <a class="btn btn-ghost btn-account" href="#account" title="دخول أصحاب المتاجر">🔑 <span>متجري</span></a>
       <a class="btn btn-primary btn-pop" href="#add"><span class="plus">+</span> أضف متجرك</a>
     </header>
 
@@ -98,7 +99,10 @@
         <a class="brand" href="#" aria-label="دكان الحي، الصفحة الرئيسية">
           <img src="assets/img/logo-white.svg" alt="دكان الحي" height="40">
         </a>
-        <a class="btn btn-glass" href="#">تصفح المتاجر ←</a>
+        <span class="hero-links">
+          <a class="btn btn-glass" href="#account">🔑 متجري</a>
+          <a class="btn btn-glass" href="#">تصفح المتاجر ←</a>
+        </span>
       </nav>
       <div class="hero-body">
         <span class="sticker" id="formBadge" hidden></span>
@@ -110,6 +114,7 @@
     </header>
 
     <main class="container">
+      <p class="edit-notice" id="editNotice" hidden></p>
       <p class="demo-banner inline" id="addDemoBanner" hidden>🧪 وضع تجريبي: الطلب يُحفظ في متصفحك فقط ولا يُرسل لأي خادم.</p>
 
       <form id="storeForm" novalidate>
@@ -249,6 +254,36 @@
           </div>
         </fieldset>
 
+        <fieldset id="accountFieldset">
+          <legend><span class="step">4</span> حساب متجرك <small class="private">🔑 تدخل فيه لمتابعة أداء متجرك وتعديل بياناته</small></legend>
+          <p class="hint" id="accountLogged" hidden>✅ أنت داخل بحساب <b id="accountEmail" dir="ltr"></b>، وبيرتبط المتجر بحسابك.</p>
+          <div id="accountFields">
+            <div class="grid">
+              <label class="field full">
+                <span>إيميل الدخول <b>*</b></span>
+                <input name="login_email" type="email" autocomplete="username" dir="ltr" placeholder="name@example.com">
+              </label>
+              <label class="field">
+                <span>كلمة المرور <b>*</b></span>
+                <input name="password" type="password" autocomplete="new-password" dir="ltr">
+              </label>
+              <label class="field">
+                <span>تأكيد كلمة المرور <b>*</b></span>
+                <input name="password2" type="password" autocomplete="new-password" dir="ltr">
+              </label>
+            </div>
+            <ul class="pw-rules" id="pwRules" aria-live="polite">
+              <li data-rule="len">8 أحرف على الأقل</li>
+              <li data-rule="upper">حرف إنجليزي كبير (A-Z)</li>
+              <li data-rule="lower">حرف إنجليزي صغير (a-z)</li>
+              <li data-rule="digit">رقم (0-9)</li>
+              <li data-rule="symbol">رمز مثل ! @ # $ %</li>
+              <li data-rule="match">التأكيد مطابق لكلمة المرور</li>
+            </ul>
+            <p class="hint">🔒 يتفعّل حسابك بعد اعتماد متجرك، وتدخل له من «متجري» أعلى الصفحة. عندك حساب؟ <a href="#account">ادخل أولًا</a> وبعدها أضف متجرك.</p>
+          </div>
+        </fieldset>
+
         <!-- حقل فخ للبرامج الآلية، يبقى فارغًا عند البشر -->
         <input class="hp" name="company_site" tabindex="-1" autocomplete="off" aria-hidden="true">
 
@@ -269,12 +304,69 @@
       <section class="success" id="success" hidden>
         <div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="success-icon">🎉</div>
-        <h2>وصلنا طلبك!</h2>
+        <h2 id="successTitle">وصلنا طلبك!</h2>
         <p id="successText"></p>
-        <a class="btn btn-primary btn-pop" href="#">تصفح المتاجر</a>
+        <a class="btn btn-primary btn-pop" href="#" id="successLink">تصفح المتاجر</a>
       </section>
     </main>
     <footer class="site-footer" data-site-footer></footer>
+  </div>
+
+  <!-- ==================== صاحب المتجر (#account) ==================== -->
+  <div class="screen screen-account" id="screen-account" hidden>
+    <header class="hero hero-slim">
+      <nav class="hero-nav">
+        <a class="brand" href="#" aria-label="دكان الحي، الصفحة الرئيسية">
+          <img src="assets/img/logo-white.svg" alt="دكان الحي" height="40">
+        </a>
+        <a class="btn btn-glass" href="#">تصفح المتاجر ←</a>
+      </nav>
+      <div class="hero-body">
+        <h1>متجري</h1>
+        <p id="ownerHello">تابع أداء متجرك، وعدّل بياناته، واطّلع على اشتراكك.</p>
+      </div>
+      <span class="blob blob-lime" aria-hidden="true"></span>
+      <span class="blob blob-coral" aria-hidden="true"></span>
+    </header>
+
+    <main class="container">
+      <p class="demo-banner inline" id="ownerDemo" hidden>🧪 وضع تجريبي: اضغط «دخول تجريبي» للدخول كصاحب متجر «حلويات بيت الجدة»، أو ادخل بالحساب اللي أنشأته وقت تسجيل متجرك.</p>
+
+      <form class="panel owner-login" id="ownerLogin" hidden novalidate>
+        <h2>🔑 دخول أصحاب المتاجر</h2>
+        <div id="ownerLoginFields">
+          <label class="field"><span>الإيميل</span><input name="email" type="email" autocomplete="username" dir="ltr" required></label>
+          <label class="field"><span>كلمة المرور</span><input name="password" type="password" autocomplete="current-password" dir="ltr" required></label>
+        </div>
+        <p class="error" id="ownerLoginError" hidden></p>
+        <p class="ok-msg" id="ownerLoginOk" hidden></p>
+        <button class="btn btn-primary btn-lg btn-pop" id="ownerLoginBtn">دخول</button>
+        <p class="owner-login-links">
+          <button type="button" class="link-btn" id="forgotBtn">نسيت كلمة المرور؟</button>
+          <span>ما عندك حساب؟ <a href="#add">سجّل متجرك</a></span>
+        </p>
+      </form>
+
+      <form class="panel owner-login" id="ownerReset" hidden novalidate>
+        <h2>🔒 كلمة مرور جديدة</h2>
+        <label class="field"><span>كلمة المرور الجديدة</span><input name="password" type="password" autocomplete="new-password" dir="ltr" required></label>
+        <label class="field"><span>تأكيد كلمة المرور</span><input name="password2" type="password" autocomplete="new-password" dir="ltr" required></label>
+        <p class="hint">8 أحرف على الأقل، فيها حرف إنجليزي كبير وصغير ورقم ورمز.</p>
+        <p class="error" id="ownerResetError" hidden></p>
+        <button class="btn btn-primary btn-lg btn-pop">حفظ كلمة المرور</button>
+      </form>
+
+      <section id="ownerApp" hidden>
+        <div class="owner-bar">
+          <span class="muted">داخل بحساب <b id="ownerEmail" dir="ltr"></b></span>
+          <select id="ownerStoreSelect" aria-label="اختر المتجر" hidden></select>
+          <button type="button" class="btn btn-ghost btn-sm" id="ownerLogout">خروج</button>
+        </div>
+        <div id="ownerStore"></div>
+      </section>
+    </main>
+    <footer class="site-footer" data-site-footer></footer>
+    <div class="tooltip" id="ownerTooltip" role="status" hidden></div>
   </div>
 
   <!-- ==================== لوحة التحكم (#admin) ==================== -->

@@ -11,7 +11,7 @@ import { billingInfo, BILLING_LABELS, graceRemainingText, fillTemplate, formatDa
 import { escapeHtml, safeUrl, dayKey, storeLocations } from './utils.js';
 
 const $ = id => document.getElementById(id);
-const backend = createBackend();
+const backend = await createBackend();
 
 const STATUS = {
   pending: { label: 'قيد المراجعة', icon: '⏳' },
@@ -35,6 +35,7 @@ const state = {
   stores: [],
   stats: null,
   payments: [],
+  edits: [],
   adminSettings: structuredClone(DEFAULT_ADMIN_SETTINGS),
   range: 30,
   clicks: new Map(),
@@ -189,11 +190,13 @@ $('logoutBtn').addEventListener('click', async () => {
 async function loadAll() {
   document.body.classList.add('loading');
   try {
-    const [stores, stats, payments, adminSettings] = await Promise.all([
+    const [stores, stats, payments, adminSettings, edits] = await Promise.all([
       backend.stores(), backend.eventStats(state.range * 2), backend.payments(), backend.adminSettings(),
+      backend.edits().catch(() => []),
     ]);
     state.stores = stores;
     state.payments = payments;
+    state.edits = edits;
     state.adminSettings = deepMerge(structuredClone(DEFAULT_ADMIN_SETTINGS), adminSettings);
     setStats(stats);
     renderAll();
@@ -225,7 +228,7 @@ function setStats(stats) {
 }
 
 function renderAll() {
-  const pending = state.stores.filter(s => s.status === 'pending').length;
+  const pending = state.stores.filter(s => s.status === 'pending').length + state.edits.length;
   $('pendingBadge').textContent = pending;
   $('pendingBadge').hidden = !pending;
   renderOverview();
@@ -252,6 +255,7 @@ function renderOverview() {
 
   const tiles = [
     { label: 'بانتظار المراجعة', value: pending, sub: pending ? 'اضغط للمراجعة ←' : 'كل الطلبات مراجعة 👌', accent: pending > 0, status: 'pending' },
+    { label: 'طلبات تعديل', value: state.edits.length, sub: state.edits.length ? 'تعديلات من أصحاب المتاجر ←' : 'لا توجد طلبات', accent: state.edits.length > 0, status: 'edits' },
     { label: 'متاجر معتمدة', value: approved.length, sub: `في ${formatNumber(cities)} مدينة` },
     { label: 'اشتراكات متأخرة', value: overdue, sub: overdue ? 'انتهت مهلتها، اضغط للعرض ←' : 'لا يوجد تأخير 👌', warn: overdue > 0, billing: 'overdue' },
     { label: 'مستحقة قريبًا', value: soon, sub: 'خلال 30 يوم أو في المهلة', billing: 'soon' },
@@ -348,7 +352,7 @@ function filteredStores() {
   const category = $('tableCategory').value;
   const billing = $('tableBilling').value;
   const rows = state.stores.filter(s =>
-    (state.status === 'all' || s.status === state.status)
+    (state.status === 'all' || s.status === state.status || (state.status === 'edits' && editFor(s.id)))
     && (!region || storeLocations(s).some(l => l.region === region))
     && (!category || s.category === category)
     && billingMatches(s, billing)
@@ -368,7 +372,8 @@ function filteredStores() {
 function renderTable() {
   const counts = { all: state.stores.length };
   for (const s of state.stores) counts[s.status] = (counts[s.status] || 0) + 1;
-  $('statusTabs').innerHTML = [['all', 'الكل'], ['pending', 'قيد المراجعة'], ['approved', 'معتمد'], ['suspended', 'موقوف'], ['rejected', 'مرفوض']]
+  counts.edits = state.edits.length;
+  $('statusTabs').innerHTML = [['all', 'الكل'], ['pending', 'قيد المراجعة'], ['edits', '✏️ طلبات تعديل'], ['approved', 'معتمد'], ['suspended', 'موقوف'], ['rejected', 'مرفوض']]
     .map(([k, label]) => `<button type="button" class="status-tab${state.status === k ? ' active' : ''}" data-status="${k}" role="tab" aria-selected="${state.status === k}">${label} <span>${counts[k] || 0}</span></button>`)
     .join('');
 
@@ -401,7 +406,7 @@ function renderTable() {
         <td class="nowrap"><span>${escapeHtml(s.owner?.owner_name || '—')}${s.owner?.registrant_role === 'employee' ? ' <em class="role-tag">موظف</em>' : ''}</span>${phone ? `<small><a href="https://wa.me/${escapeHtml(phone)}" target="_blank" rel="noopener" title="واتساب" dir="ltr">${escapeHtml(localPhone(phone))}</a></small>` : ''}</td>
         <td class="num">${formatNumber(state.clicks.get(s.id) || 0)}</td>
         <td class="nowrap" title="${escapeHtml(DATETIME.format(new Date(s.created_at)))}">${relative(s.created_at)}</td>
-        <td class="nowrap">${statusPill(s.status)}${billingLine(s)}</td>
+        <td class="nowrap">${statusPill(s.status)}${editFor(s.id) ? '<span class="status-pill status-edit">✏️ تعديل</span>' : ''}${billingLine(s)}</td>
         <td class="nowrap row-actions">${actions}</td>
       </tr>`;
   }).join('');
@@ -474,6 +479,14 @@ async function act(id, action) {
       state.payments = state.payments.filter(p => p.store_id !== id);
       closeDrawer();
       toast('🗑️ تم حذف المتجر');
+    } else if (action === 'edit-approve' || action === 'edit-reject') {
+      const edit = editFor(id);
+      const approve = action === 'edit-approve';
+      if (!approve && !$('editNote').value.trim() && !confirm('رفض التعديل بدون ذكر السبب لصاحب المتجر؟')) return;
+      await backend.reviewEdit(edit.id, approve, $('editNote').value.trim());
+      [state.stores, state.edits] = await Promise.all([backend.stores(), backend.edits()]);
+      toast(approve ? '✅ تم اعتماد التعديل وصار ظاهر في المنصة' : 'تم رفض التعديل');
+      openDrawer(id);
     } else if (action === 'note') {
       const note = $('adminNote').value.trim() || null;
       await backend.update(id, { admin_note: note });
@@ -564,6 +577,75 @@ function subscriptionSection(s) {
     </section>`;
 }
 
+// ---------- طلبات التعديل والأداء ----------
+
+function editFor(id) {
+  return state.edits.find(e => String(e.store_id) === id);
+}
+
+function editSection(s) {
+  const edit = editFor(s.id);
+  if (!edit) return '';
+  const d = edit.data;
+  const o = s.owner || {};
+  const show = v => (v === null || v === undefined || v === '' ? '—' : escapeHtml(String(v)));
+  const list = arr => (arr || []).map(x => DELIVERY[x]).filter(Boolean).join('، ');
+  const locText = locs => (locs || []).map(l => `${l.city}${l.district ? ` · ${l.district}` : ''}`).join(' / ');
+  const rows = [
+    ['الاسم', s.name, d.name],
+    ['الرابط', s.url, d.url || null],
+    ['التصنيف', s.category, d.category],
+    ['نوع النشاط', ENTITY_TYPES[s.entity_type]?.label, ENTITY_TYPES[d.entity_type]?.label],
+    ['النبذة', s.description, d.description],
+    ['الشعار', s.logo_url, d.logo_url],
+    ['التوصيل', list(s.delivery), list(d.delivery)],
+    ['انستقرام', s.instagram, d.instagram],
+    ['سناب شات', s.snapchat, d.snapchat],
+    ['تيك توك', s.tiktok, d.tiktok],
+    ['إكس', s.x_handle, d.x_handle],
+    ['واتساب المتجر', localPhone(s.whatsapp), localPhone(d.whatsapp)],
+    ['المواقع', locText(storeLocations(s)), locText(d.locations)],
+    ['موقع تقريبي', s.approximate ? 'نعم' : 'لا', d.approximate ? 'نعم' : 'لا'],
+    ['اسم المسجل', o.owner_name, d.owner?.owner_name],
+    ['جوال المسجل', localPhone(o.phone), localPhone(d.owner?.phone)],
+    ['السجل / الوثيقة', o.cr_number, d.owner?.cr_number],
+    ['الصفة', REGISTRANT_ROLES[o.registrant_role], REGISTRANT_ROLES[d.owner?.registrant_role]],
+    ['المسمى', o.registrant_title, d.owner?.registrant_role === 'employee' ? d.owner?.registrant_title : null],
+  ].filter(([, before, after]) => (before || null) !== (after || null) && !(before == null && after === undefined));
+  return `
+    <section class="drawer-section edit-review">
+      <h3>✏️ طلب تعديل بانتظار مراجعتك <small>${escapeHtml(DATE.format(new Date(edit.created_at)))}</small></h3>
+      ${rows.length ? `<table class="diff-table"><thead><tr><th>الحقل</th><th>الحالي</th><th>المطلوب</th></tr></thead><tbody>
+        ${rows.map(([label, before, after]) => `<tr><td>${label}</td><td class="old">${show(before)}</td><td class="new">${show(after)}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="muted">ما فيه تغييرات عن البيانات الحالية.</p>'}
+      <label class="field"><span>ملاحظة لصاحب المتجر <small>(تظهر له، خصوصًا عند الرفض)</small></span><textarea id="editNote" rows="2" maxlength="300"></textarea></label>
+      <div class="drawer-actions inline">
+        <button type="button" class="btn btn-primary btn-sm" data-action="edit-approve">✓ اعتماد التعديل</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-action="edit-reject">✕ رفض</button>
+      </div>
+    </section>`;
+}
+
+async function loadDrawerPerformance(id) {
+  let perf;
+  try {
+    perf = await backend.performance(id, 30);
+  } catch {
+    if (state.openId === id) $('drawerPerf').innerHTML = '<span class="muted">الإحصائيات تتوفر بعد تشغيل ترحيل قاعدة البيانات 003.</span>';
+    return;
+  }
+  if (state.openId !== id) return;
+  const impressions = perf.daily.reduce((n, d) => n + d.impressions, 0);
+  const clicks = perf.daily.reduce((n, d) => n + d.clicks, 0);
+  $('drawerPerf').innerHTML = `
+    <dl>
+      ${infoRow('الظهور في البحث', formatNumber(impressions))}
+      ${infoRow('النقرات', formatNumber(clicks))}
+      ${infoRow('أكثر الكلمات', perf.terms.slice(0, 6).map(t => `${escapeHtml(t.term)} (${formatNumber(t.hits)})`).join('، ') || '—')}
+      ${infoRow('مدن الباحثين', perf.cities.slice(0, 6).map(c => `${escapeHtml(c.city)} (${formatNumber(c.hits)})`).join('، ') || '—')}
+    </dl>`;
+}
+
 function openDrawer(id) {
   const s = state.stores.find(x => x.id === id);
   if (!s) return;
@@ -605,7 +687,13 @@ function openDrawer(id) {
       ${s.status !== 'pending' ? btn('pending', '⏳ إرجاع للمراجعة') : ''}
     </div>
 
+    ${editSection(s)}
     ${subscriptionSection(s)}
+
+    <section class="drawer-section">
+      <h3>📈 أداء المتجر <small>آخر 30 يوم</small></h3>
+      <div id="drawerPerf" class="drawer-perf"><span class="muted">جارٍ التحميل…</span></div>
+    </section>
 
     <section class="drawer-section">
       <h3>👤 المسجّل <small>خاص</small></h3>
@@ -658,6 +746,8 @@ function openDrawer(id) {
   $('drawer').classList.add('open');
   $('drawer').setAttribute('aria-hidden', 'false');
   if (!wasOpen) $('drawer').focus();
+
+  loadDrawerPerformance(s.id);
 
   drawerMap?.remove();
   drawerMap = createMap('drawerMap');

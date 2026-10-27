@@ -3,6 +3,7 @@ import {
   CATEGORIES, CATEGORY_ICONS, SETTINGS, priceFor, graceFor, graceLabel, badgeText, pricingText, isLaunchPeriod, formatDate,
 } from './settings.js';
 import { submitStore, isDemo } from './api.js';
+import { createOwnerBackend } from './owner-data.js';
 import { createMap, pinIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage, searchPlaces, reverseGeocode } from './geo.js';
 import {
@@ -12,6 +13,12 @@ import {
 const form = document.getElementById('storeForm');
 const f = form.elements;
 const $ = id => document.getElementById(id);
+
+// register: تسجيل متجر جديد · edit: طلب تعديل متجر قائم (يمر على مراجعة المشرف)
+let mode = 'register';
+let editId = null;
+let ownerPromise = null;
+const owner = () => (ownerPromise ||= createOwnerBackend());
 
 if (isDemo) $('addDemoBanner').hidden = false;
 
@@ -31,6 +38,9 @@ function applyFormSettings() {
   $('termsText').textContent = fs.terms;
   $('formDisclaimer').textContent = SETTINGS.legal.disclaimer;
   $('successText').textContent = fs.success;
+  $('successTitle').textContent = 'وصلنا طلبك!';
+  $('successLink').textContent = 'تصفح المتاجر';
+  $('successLink').href = '#';
   $('pricingNote').textContent = `💳 ${pricingText()}`;
   const launch = isLaunchPeriod() ? `\nمجاني حتى ${formatDate(SETTINGS.pricing.launch_end)}` : '';
   for (const el of form.querySelectorAll('[data-price]')) {
@@ -68,6 +78,48 @@ function updateRole() {
   $('titleField').hidden = !employee;
   f.registrant_title.required = employee;
 }
+
+// ---- حساب الدخول ----
+const PW_RULES = {
+  len: p => p.length >= 8,
+  upper: p => /[A-Z]/.test(p),
+  lower: p => /[a-z]/.test(p),
+  digit: p => /\d/.test(p),
+  symbol: p => /[^A-Za-z0-9\s]/.test(p),
+};
+let loggedEmail = null;
+let loginTouched = false;
+
+function checkPassword() {
+  const p = f.password.value;
+  const ok = Object.fromEntries(Object.entries(PW_RULES).map(([k, test]) => [k, test(p)]));
+  ok.match = Boolean(p) && p === f.password2.value;
+  for (const li of $('pwRules').children) li.classList.toggle('ok', Boolean(ok[li.dataset.rule]));
+  return Object.values(ok).every(Boolean);
+}
+
+function accountNeeded() {
+  return mode === 'register' && !loggedEmail;
+}
+
+async function refreshAccount() {
+  try {
+    loggedEmail = (await (await owner()).session())?.email || null;
+  } catch {
+    loggedEmail = null;
+  }
+  $('accountLogged').hidden = !loggedEmail;
+  $('accountFields').hidden = Boolean(loggedEmail);
+  $('accountEmail').textContent = loggedEmail || '';
+  for (const name of ['login_email', 'password', 'password2']) f[name].required = accountNeeded();
+}
+
+f.password.addEventListener('input', checkPassword);
+f.password2.addEventListener('input', checkPassword);
+f.login_email.addEventListener('input', () => { loginTouched = true; });
+f.email.addEventListener('input', () => {
+  if (!loginTouched) f.login_email.value = f.email.value;
+});
 
 form.querySelectorAll('input[name="entity_type"]').forEach(r => r.addEventListener('change', updateEntity));
 form.querySelectorAll('input[name="registrant_role"]').forEach(r => r.addEventListener('change', updateRole));
@@ -339,10 +391,15 @@ form.addEventListener('submit', async e => {
   }
   const phone = normalizePhone(f.phone.value);
   f.phone.setCustomValidity(/^9665\d{8}$/.test(phone) ? '' : 'رقم جوال سعودي غير صالح');
+  const strong = !accountNeeded() || checkPassword();
+  f.password.setCustomValidity(strong ? '' : 'كلمة المرور لا تحقق الشروط');
 
   const invalid = [...form.elements].find(el => el.willValidate && !el.checkValidity());
   if (invalid) {
     form.classList.add('validated');
+    if (invalid === f.password || invalid === f.password2) {
+      return formError('كلمة المرور لازم تحقق كل الشروط الموضحة، والتأكيد يطابقها.', f.password);
+    }
     const label = invalid.closest('.field, .check')?.querySelector('span')?.textContent.replace('*', '').trim();
     return formError(`تأكد من حقل: ${label || 'الحقول المطلوبة'}`, invalid);
   }
@@ -403,10 +460,27 @@ form.addEventListener('submit', async e => {
   };
 
   const btn = $('submitBtn');
+  const label = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'لحظة… جارٍ الإرسال';
   try {
-    await submitStore(payload);
+    if (mode === 'edit') {
+      const { owner_name, phone: ownerPhone, cr_number, registrant_role, registrant_title, email, location_type, ...fieldsData } = payload;
+      await (await owner()).submitEdit(editId, {
+        ...fieldsData, owner: { owner_name, phone: ownerPhone, cr_number, registrant_role, registrant_title },
+      });
+      $('successTitle').textContent = 'وصلنا طلب التعديل!';
+      $('successText').textContent = 'بنراجع التعديلات، وتطلع على المنصة بعد الاعتماد. تقدر تتابع حالة الطلب من «متجري».';
+      $('successLink').textContent = 'رجوع لمتجري';
+      $('successLink').href = '#account';
+    } else {
+      const account = loggedEmail ? null : { email: f.login_email.value.trim(), password: f.password.value };
+      await submitStore(payload, account);
+      $('successText').textContent = `${SETTINGS.form.success} وبعد الاعتماد تقدر تدخل «متجري» بإيميل الدخول وكلمة المرور.`;
+      f.password.value = '';
+      f.password2.value = '';
+      refreshAccount();
+    }
     form.hidden = true;
     $('success').hidden = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -414,15 +488,88 @@ form.addEventListener('submit', async e => {
     formError(err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'أرسل طلبك 🚀';
+    btn.textContent = label;
   }
 });
 
-// عند فتح القسم مجددًا: نعيد ضبط حجم الخريطة، ونبدأ نموذجًا جديدًا إذا كان الطلب السابق قد أُرسل
-export function onShow() {
+// ---- وضع التعديل ----
+function localPhone(p) {
+  return p && p.startsWith('966') ? `0${p.slice(3)}` : (p || '');
+}
+
+function setChecked(name, value) {
+  const input = form.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (input) input.checked = true;
+}
+
+async function startEdit() {
+  let wanted = null;
+  try { wanted = sessionStorage.getItem('dukkan.editStore'); } catch { /* لا شيء */ }
+  let items = [];
+  try {
+    items = await (await owner()).dashboard();
+  } catch { /* غير داخل */ }
+  const item = items.find(x => x.store.id === wanted) || items[0];
+  if (!item) {
+    location.hash = '#account';
+    return;
+  }
+  const { store: s, owner: o = {}, locations: locs, edit } = item;
+  mode = 'edit';
+  editId = s.id;
+
+  $('formTitle').textContent = 'تعديل بيانات متجرك';
+  $('formSubtitle').textContent = 'عدّل اللي تبيه وأرسله، ويطلع على المنصة بعد مراجعة فريق دكان الحي.';
+  $('formBadge').hidden = true;
+  $('accountFieldset').hidden = true;
+  for (const name of ['login_email', 'password', 'password2']) f[name].required = false;
+  $('editNotice').hidden = !(edit && edit.status !== 'approved');
+  $('editNotice').textContent = edit?.status === 'pending'
+    ? '⏳ عندك طلب تعديل سابق قيد المراجعة، وإرسال طلب جديد يستبدله.'
+    : edit?.status === 'rejected' ? `❌ آخر طلب تعديل ما اعتُمد${edit.admin_note ? `: ${edit.admin_note}` : ''}.` : '';
+  $('submitBtn').textContent = 'أرسل التعديل للمراجعة ✏️';
+
+  setChecked('entity_type', s.entity_type);
+  updateEntity();
+  f.name.value = s.name || '';
+  f.url.value = s.url || '';
+  if (s.category && !CATEGORIES.includes(s.category)) f.category.add(new Option(s.category, s.category));
+  f.category.value = s.category || '';
+  f.logo_url.value = s.logo_url || '';
+  f.description.value = s.description || '';
+  form.querySelectorAll('input[name="delivery"]').forEach(c => { c.checked = (s.delivery || []).includes(c.value); });
+  for (const name of ['instagram', 'x_handle', 'tiktok', 'snapchat']) f[name].value = s[name] || '';
+  f.whatsapp.value = localPhone(s.whatsapp);
+  f.approximate.checked = Boolean(s.approximate);
+
+  f.owner_name.value = o.owner_name || '';
+  f.phone.value = localPhone(o.phone);
+  f.email.value = o.email || '';
+  f.email.disabled = true;
+  f.cr_number.value = o.cr_number || '';
+  setChecked('registrant_role', o.registrant_role || 'owner');
+  f.registrant_title.value = o.registrant_title || '';
+  updateRole();
+
+  locations = (locs?.length ? [...locs].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) : [s])
+    .map(l => ({ ...emptyLocation(), lat: Number(l.lat), lng: Number(l.lng), region: l.region, city: l.city, district: l.district || '' }));
+  active = 0;
+  loadFields();
+  refreshAll();
   map.invalidateSize();
-  applyFormSettings();
-  if ($('success').hidden) return;
+  map.fitBounds(L.latLngBounds(locations.map(l => [l.lat, l.lng])), { padding: [40, 40], maxZoom: 15 });
+}
+
+function exitEdit() {
+  mode = 'register';
+  editId = null;
+  $('accountFieldset').hidden = false;
+  $('editNotice').hidden = true;
+  f.email.disabled = false;
+  $('submitBtn').textContent = 'أرسل طلبك 🚀';
+}
+
+function resetForm() {
   form.reset();
   form.classList.remove('validated');
   updateCities();
@@ -434,4 +581,23 @@ export function onShow() {
   map.setView(SA_CENTER, SA_ZOOM);
   $('success').hidden = true;
   form.hidden = false;
+  formError('');
+}
+
+// عند فتح القسم: #edit يفتح وضع التعديل، و#add نموذج تسجيل جديد
+export async function onShow() {
+  map.invalidateSize();
+  if (location.hash === '#edit') {
+    resetForm();
+    applyFormSettings();
+    await startEdit();
+    return;
+  }
+  if (mode === 'edit') {
+    exitEdit();
+    resetForm();
+  }
+  applyFormSettings();
+  refreshAccount();
+  if (!$('success').hidden) resetForm();
 }
