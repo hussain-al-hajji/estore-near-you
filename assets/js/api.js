@@ -113,8 +113,12 @@ export async function submitStore(payload) {
 }
 
 // تسجيل زيارة أو نقرة لإحصائيات لوحة التحكم (لا يُرسل أي بيانات شخصية)
+// التجربة على جهاز المطوّر لا تُحسب في إحصائيات المنصة الحقيقية
+const LOCAL_HOST = location.protocol === 'file:' || /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname);
+
 export function logEvent(type, storeId = null) {
   if (LIVE) {
+    if (LOCAL_HOST) return;
     fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/log_event`, {
       method: 'POST',
       headers: headers(),
