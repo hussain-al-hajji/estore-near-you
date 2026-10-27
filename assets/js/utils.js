@@ -122,3 +122,11 @@ export function dayKey(date = new Date()) {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+// كل مواقع المتجر (مرتبة)، أو موقعه الرئيسي للمتاجر القديمة
+export function storeLocations(s) {
+  const list = s.store_locations?.length
+    ? [...s.store_locations].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    : [{ lat: s.lat, lng: s.lng, region: s.region, city: s.city, district: s.district }];
+  return list.map(l => ({ ...l, lat: Number(l.lat), lng: Number(l.lng) }));
+}

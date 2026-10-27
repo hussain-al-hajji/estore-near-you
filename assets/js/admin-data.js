@@ -1,6 +1,8 @@
 import { CONFIG } from './config.js';
 import { isDemo, demoAllStores, DEMO_KEYS } from './api.js';
 import { storage, dayKey } from './utils.js';
+import { SETTINGS } from './settings.js';
+import { registrationDay } from './billing.js';
 
 export function createBackend() {
   return isDemo ? demoBackend() : liveBackend();
@@ -32,11 +34,21 @@ function liveBackend() {
     },
     signOut: () => sb.auth.signOut(),
     isAdmin: async () => check(await sb.rpc('is_admin')) === true,
-    stores: async () => check(await sb.from('stores').select('*, store_owners(*)')
+    stores: async () => check(await sb.from('stores').select('*, store_owners(*), store_locations(*)')
       .order('created_at', { ascending: false })).map(flattenOwner),
     eventStats: async days => check(await sb.rpc('admin_event_stats', { p_days: days })),
     update: async (id, patch) => { check(await sb.from('stores').update(patch).eq('id', id)); },
     remove: async id => { check(await sb.from('stores').delete().eq('id', id)); },
+    payments: async () => check(await sb.from('payments').select('*').order('created_at', { ascending: false })),
+    recordPayment: async (id, amount, note) =>
+      check(await sb.rpc('admin_record_payment', { p_store: id, p_amount: amount, p_note: note || null })),
+    saveSettings: async data => {
+      check(await sb.from('site_settings').update({ data, updated_at: new Date().toISOString() }).eq('id', 1));
+    },
+    adminSettings: async () => check(await sb.from('admin_settings').select('data').eq('id', 1).maybeSingle())?.data || {},
+    saveAdminSettings: async data => {
+      check(await sb.from('admin_settings').update({ data, updated_at: new Date().toISOString() }).eq('id', 1));
+    },
   };
 }
 
@@ -61,6 +73,8 @@ function fakeOwner(s, i) {
     phone: `9665${String(Math.floor(r * 1e8)).padStart(8, '0')}`,
     email: `owner${i + 1}@example.com`,
     cr_number: r > 0.5 ? `FL-${Math.floor(r * 1e6)}` : null,
+    registrant_role: r > 0.7 ? 'employee' : 'owner',
+    registrant_title: r > 0.7 ? 'مسؤول المبيعات' : null,
   };
 }
 
@@ -114,12 +128,33 @@ function demoBackend() {
     },
     async update(id, patch) {
       updateAdmin(admin => {
-        if (patch.status) (admin.status ||= {})[id] = patch.status;
-        if ('admin_note' in patch) (admin.notes ||= {})[id] = patch.admin_note;
+        (admin.patch ||= {})[id] = { ...(admin.patch[id] || {}), ...patch };
       });
     },
     async remove(id) {
       updateAdmin(admin => { (admin.deleted ||= []).push(id); });
     },
+    payments: async () => storage(DEMO_KEYS.payments) || [],
+    // نفس منطق admin_record_payment في قاعدة البيانات
+    async recordPayment(id, amount, note) {
+      const s = (await this.stores()).find(x => x.id === id);
+      const launch = SETTINGS.pricing.launch_end;
+      const registered = registrationDay(s.created_at);
+      const start = s.paid_until || (registered > launch ? registered : launch);
+      const end = `${Number(start.slice(0, 4)) + 1}${start.slice(4)}`;
+      const payments = storage(DEMO_KEYS.payments) || [];
+      payments.unshift({
+        id: Date.now(), store_id: id, amount, period_start: start, period_end: end,
+        note: note || null, created_at: new Date().toISOString(),
+      });
+      storage(DEMO_KEYS.payments, payments);
+      const patch = { paid_until: end };
+      if (s.status === 'suspended') Object.assign(patch, { status: 'approved', approved_at: new Date().toISOString() });
+      await this.update(id, patch);
+      return end;
+    },
+    saveSettings: async data => { storage(DEMO_KEYS.settings, data); },
+    adminSettings: async () => storage(DEMO_KEYS.adminSettings) || {},
+    saveAdminSettings: async data => { storage(DEMO_KEYS.adminSettings, data); },
   };
 }

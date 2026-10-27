@@ -1,6 +1,8 @@
 // موجّه الصفحة الواحدة: # للتصفح، ‎#add لإضافة متجر، ‎#admin للوحة التحكم.
 // كل قسم يُحمَّل كوده عند أول فتح فقط، فالزائر العادي لا يحمّل كود لوحة التحكم.
 import { isDemo } from './api.js';
+import { loadSettings } from './settings.js';
+import { renderFooters } from './footer.js';
 
 const SUPABASE_JS = {
   src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.js',
@@ -74,4 +76,6 @@ async function route() {
 }
 
 window.addEventListener('hashchange', route);
+await loadSettings();
+renderFooters();
 route();

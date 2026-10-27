@@ -20,7 +20,8 @@
     "district": "حي الناصرة",
     "lat": 26.547,
     "lng": 50.006,
-    "approximate": true
+    "approximate": true,
+    "entity_type": "freelance"
   },
   {
     "id": "demo-02",
@@ -43,7 +44,8 @@
     "district": "سيهات",
     "lat": 26.483,
     "lng": 50.042,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "company"
   },
   {
     "id": "demo-03",
@@ -65,7 +67,8 @@
     "district": "حي الفيصلية",
     "lat": 26.41,
     "lng": 50.07,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "company"
   },
   {
     "id": "demo-04",
@@ -88,7 +91,8 @@
     "district": "حي العقربية",
     "lat": 26.29,
     "lng": 50.2,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "company"
   },
   {
     "id": "demo-05",
@@ -111,7 +115,8 @@
     "district": "الهفوف",
     "lat": 25.38,
     "lng": 49.585,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "freelance"
   },
   {
     "id": "demo-06",
@@ -133,7 +138,8 @@
     "district": "المبرز",
     "lat": 25.41,
     "lng": 49.58,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "company"
   },
   {
     "id": "demo-07",
@@ -156,7 +162,8 @@
     "district": "حي الملقا",
     "lat": 24.81,
     "lng": 46.61,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "company"
   },
   {
     "id": "demo-08",
@@ -179,7 +186,8 @@
     "district": "حي النرجس",
     "lat": 24.84,
     "lng": 46.66,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "freelance"
   },
   {
     "id": "demo-09",
@@ -201,7 +209,8 @@
     "district": "حي الياسمين",
     "lat": 24.82,
     "lng": 46.64,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "freelance"
   },
   {
     "id": "demo-10",
@@ -223,7 +232,8 @@
     "district": "حي الروضة",
     "lat": 21.56,
     "lng": 39.16,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "company"
   },
   {
     "id": "demo-11",
@@ -246,7 +256,8 @@
     "district": "حي الشاطئ",
     "lat": 21.59,
     "lng": 39.11,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "freelance"
   },
   {
     "id": "demo-12",
@@ -268,7 +279,8 @@
     "district": "حي المنسك",
     "lat": 18.22,
     "lng": 42.51,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "freelance"
   },
   {
     "id": "demo-13",
@@ -291,7 +303,8 @@
     "district": "حي العزيزية",
     "lat": 24.48,
     "lng": 39.58,
-    "approximate": false
+    "approximate": false,
+    "entity_type": "freelance"
   },
   {
     "id": "demo-14",
@@ -313,6 +326,7 @@
     "district": "حي الريان",
     "lat": 26.35,
     "lng": 43.96,
-    "approximate": true
+    "approximate": true,
+    "entity_type": "freelance"
   }
 ]

@@ -7,6 +7,9 @@ const DEMO = {
   owners: 'dukkan.demoOwners',
   admin: 'dukkan.demoAdmin',
   events: 'dukkan.demoEvents',
+  settings: 'dukkan.demoSettings',
+  adminSettings: 'dukkan.demoAdminSettings',
+  payments: 'dukkan.demoPayments',
 };
 
 export const isDemo = !LIVE;
@@ -14,7 +17,8 @@ export const DEMO_KEYS = DEMO;
 
 const PUBLIC_COLUMNS = [
   'id', 'name', 'url', 'category', 'description', 'logo_url', 'instagram', 'x_handle', 'tiktok',
-  'whatsapp', 'delivery', 'location_type', 'region', 'city', 'district', 'lat', 'lng', 'approximate',
+  'whatsapp', 'delivery', 'region', 'city', 'district', 'lat', 'lng', 'approximate',
+  'entity_type', 'snapchat', 'store_locations(lat,lng,region,city,district,position)',
 ].join(',');
 
 function headers() {
@@ -47,7 +51,17 @@ export async function demoAllStores() {
       ...s,
       status: admin.status?.[s.id] || s.status,
       admin_note: admin.notes?.[s.id] ?? null,
+      ...(admin.patch?.[s.id] || {}),
     }));
+}
+
+export async function fetchSettings() {
+  if (LIVE) {
+    const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/site_settings?select=data&id=eq.1`, { headers: headers() });
+    if (!res.ok) throw new Error(`تعذر تحميل الإعدادات (${res.status})`);
+    return (await res.json())[0]?.data || {};
+  }
+  return storage(DEMO.settings) || {};
 }
 
 export async function fetchStores() {
@@ -61,7 +75,7 @@ export async function fetchStores() {
   }
   // نعرض الطلبات المعلقة أيضًا (بشارة) حتى تجرب المسار كاملًا
   return (await demoAllStores())
-    .filter(s => s.status !== 'rejected')
+    .filter(s => s.status === 'approved' || s.status === 'pending')
     .map(s => ({ ...s, pending: s.status === 'pending' }));
 }
 
@@ -79,15 +93,22 @@ export async function submitStore(payload) {
     }
     return res.json();
   }
-  const { owner_name, phone, email, cr_number, ...publicFields } = payload;
+  const { owner_name, phone, email, cr_number, registrant_role, registrant_title, ...publicFields } = payload;
   const id = `demo-${Date.now()}`;
-  const record = { id, ...publicFields, created_at: new Date().toISOString() };
-  if (record.approximate) {
-    record.lat = Math.round(record.lat * 100) / 100;
-    record.lng = Math.round(record.lng * 100) / 100;
-  }
+  const { locations = [], ...rest } = publicFields;
+  const round = v => (rest.approximate ? Math.round(v * 100) / 100 : v);
+  const storeLocations = locations.map((l, position) => ({ ...l, lat: round(l.lat), lng: round(l.lng), position }));
+  const [main] = storeLocations;
+  const record = {
+    id, ...rest, created_at: new Date().toISOString(),
+    lat: main.lat, lng: main.lng, region: main.region, city: main.city, district: main.district,
+    store_locations: storeLocations,
+  };
   storage(DEMO.submissions, [record, ...(storage(DEMO.submissions) || [])]);
-  storage(DEMO.owners, { ...(storage(DEMO.owners) || {}), [id]: { owner_name, phone, email, cr_number } });
+  storage(DEMO.owners, {
+    ...(storage(DEMO.owners) || {}),
+    [id]: { owner_name, phone, email, cr_number, registrant_role, registrant_title },
+  });
   return id;
 }
 

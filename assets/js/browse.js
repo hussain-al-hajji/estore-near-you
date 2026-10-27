@@ -1,14 +1,15 @@
-import { REGIONS, CATEGORIES, CATEGORY_ICONS, DELIVERY, DELIVERY_ICONS, LOCATION_TYPES } from './constants.js';
+import { REGIONS, DELIVERY, DELIVERY_ICONS } from './constants.js';
+import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
 import { fetchStores, isDemo, logEvent } from './api.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
-  escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage,
+  escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage, storeLocations,
 } from './utils.js';
 
 const $ = id => document.getElementById(id);
 const els = {
-  q: $('q'), region: $('region'), city: $('city'), chips: $('categoryChips'),
+  q: $('q'), region: $('region'), city: $('city'), entity: $('entity'), chips: $('categoryChips'),
   nearMe: $('nearMe'), radius: $('radius'), list: $('list'), count: $('count'),
   subtitle: $('subtitle'), status: $('status'), geoNote: $('geoNote'),
 };
@@ -28,6 +29,7 @@ const ICONS = {
   instagram: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" class="fill"/></svg>',
   x: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>',
   tiktok: '<svg viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5M14 3c.6 2.6 2.6 4.6 5 4.8"/></svg>',
+  snapchat: '<svg viewBox="0 0 24 24"><path d="M12 3.5c3 0 5 2.2 5 5.2v2.1l1.8-.5c.6.6.3 1.3-.4 1.6l-1.6.7c.6 1.8 1.9 3.1 3.6 3.6-.3.9-1.4 1.1-2.4 1.2l-.4 1.3-1.6-.2c-1 .8-2.4 1.8-4 1.8s-3-1-4-1.8l-1.6.2-.4-1.3c-1-.1-2.1-.3-2.4-1.2 1.7-.5 3-1.8 3.6-3.6l-1.6-.7c-.7-.3-1-1-.4-1.6l1.8.5V8.7c0-3 2-5.2 5-5.2z"/></svg>',
   whatsapp: '<svg viewBox="0 0 24 24"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9.5c.5 2.2 2.3 4 4.5 4.5"/></svg>',
 };
 const AVATAR_THEMES = ['violet', 'coral', 'lime', 'sky', 'pink'];
@@ -50,31 +52,56 @@ function updateCities() {
   if (region) fillSelect(els.city, region.cities.map(c => c.name));
 }
 
+// المتجر قد يكون له أكثر من موقع: الفلترة بالمنطقة/المدينة تطابق أي موقع، والمسافة تُقاس لأقرب موقع
 function filtered() {
   const q = els.q.value.trim().toLowerCase();
   const radius = Number(els.radius.value) || 0;
-  let rows = state.stores.filter(s =>
-    (!els.region.value || s.region === els.region.value)
-    && (!els.city.value || s.city === els.city.value)
-    && (!state.category || s.category === state.category)
-    && (!q || `${s.name} ${s.description || ''} ${s.category} ${s.district || ''}`.toLowerCase().includes(q)),
-  );
+  const region = els.region.value;
+  const city = els.city.value;
+  let rows = state.stores
+    .filter(s =>
+      (!els.entity.value || s.entity_type === els.entity.value)
+      && (!state.category || s.category === state.category)
+      && (!q || `${s.name} ${s.description || ''} ${s.category} ${s.locs.map(l => `${l.city} ${l.district || ''}`).join(' ')}`.toLowerCase().includes(q)))
+    .map(s => ({ ...s, shownLocs: s.locs.filter(l => (!region || l.region === region) && (!city || l.city === city)) }))
+    .filter(s => s.shownLocs.length);
   if (state.userLoc) {
-    rows = rows.map(s => ({ ...s, km: haversineKm(state.userLoc.lat, state.userLoc.lng, s.lat, s.lng) }));
+    rows = rows.map(s => {
+      const dists = s.shownLocs.map(l => haversineKm(state.userLoc.lat, state.userLoc.lng, l.lat, l.lng));
+      const nearest = dists.indexOf(Math.min(...dists));
+      return { ...s, km: dists[nearest], nearest };
+    });
     if (radius) rows = rows.filter(s => s.km <= radius);
     rows.sort((a, b) => a.km - b.km);
   }
   return rows;
 }
 
-function socialLinks(s) {
+function mainLoc(s) {
+  return s.shownLocs[s.nearest ?? 0];
+}
+
+function socialList(s) {
   const links = [];
-  if (s.instagram) links.push(['instagram', 'انستقرام', `https://instagram.com/${encodeURIComponent(s.instagram)}`]);
-  if (s.x_handle) links.push(['x', 'إكس', `https://x.com/${encodeURIComponent(s.x_handle)}`]);
-  if (s.tiktok) links.push(['tiktok', 'تيك توك', `https://www.tiktok.com/@${encodeURIComponent(s.tiktok)}`]);
   if (s.whatsapp) links.push(['whatsapp', 'واتساب', `https://wa.me/${encodeURIComponent(s.whatsapp)}`]);
-  return links.map(([key, label, href]) =>
+  if (s.instagram) links.push(['instagram', 'انستقرام', `https://instagram.com/${encodeURIComponent(s.instagram)}`]);
+  if (s.snapchat) links.push(['snapchat', 'سناب شات', `https://www.snapchat.com/add/${encodeURIComponent(s.snapchat)}`]);
+  if (s.tiktok) links.push(['tiktok', 'تيك توك', `https://www.tiktok.com/@${encodeURIComponent(s.tiktok)}`]);
+  if (s.x_handle) links.push(['x', 'إكس', `https://x.com/${encodeURIComponent(s.x_handle)}`]);
+  return links;
+}
+
+function socialLinks(s) {
+  return socialList(s).map(([key, label, href]) =>
     `<a class="icon-btn" href="${href}" target="_blank" rel="noopener" title="${label}" aria-label="${label}" data-click="${escapeHtml(s.id)}">${ICONS[key]}</a>`).join('');
+}
+
+// الزر الرئيسي: رابط المتجر، أو أول حساب تواصل للمتاجر التي تبيع عبر حساباتها فقط
+function primaryLink(s) {
+  const url = safeUrl(s.url);
+  if (url) return { href: url, label: 'زيارة المتجر ↗' };
+  const [first] = socialList(s);
+  return first ? { href: first[2], label: `تواصل عبر ${first[1]} ↗` } : null;
 }
 
 function avatarTheme(name) {
@@ -92,7 +119,7 @@ function logoHtml(s) {
 }
 
 function cardHtml(s) {
-  const url = safeUrl(s.url);
+  const main = primaryLink(s);
   const delivery = (s.delivery || []).filter(d => DELIVERY[d]);
   return `
     <li class="card${s.id === state.selectedId ? ' selected' : ''}" data-id="${escapeHtml(s.id)}" tabindex="0">
@@ -100,31 +127,32 @@ function cardHtml(s) {
         ${logoHtml(s)}
         <div class="card-head">
           <h2>${escapeHtml(s.name)}</h2>
-          <p class="meta">📍 ${escapeHtml(s.city)}${s.district ? ` · ${escapeHtml(s.district)}` : ''}</p>
+          <p class="meta">📍 ${escapeHtml(mainLoc(s).city)}${mainLoc(s).district ? ` · ${escapeHtml(mainLoc(s).district)}` : ''}${s.locs.length > 1 ? ` <span class="more-locs">+${s.locs.length - 1} ${s.locs.length === 2 ? 'موقع آخر' : 'مواقع أخرى'}</span>` : ''}</p>
         </div>
         ${s.km != null ? `<span class="badge badge-distance">${formatDistance(s.km)}</span>` : ''}
         ${s.pending ? '<span class="badge badge-pending">قيد المراجعة</span>' : ''}
       </div>
       <p class="tags">
         <span class="tag">${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.category)}</span>
-        <span class="tag tag-${s.location_type}">${s.location_type === 'warehouse' ? '📦' : '🏪'} ${LOCATION_TYPES[s.location_type] || ''}${s.approximate ? ' (تقريبي)' : ''}</span>
+        ${ENTITY_TYPES[s.entity_type] ? `<span class="tag tag-entity">${ENTITY_TYPES[s.entity_type].icon} ${ENTITY_TYPES[s.entity_type].label}</span>` : ''}
+        ${s.approximate ? '<span class="tag">📍 موقع تقريبي</span>' : ''}
       </p>
       ${s.description ? `<p class="desc">${escapeHtml(s.description)}</p>` : ''}
       ${delivery.length ? `<p class="delivery">${delivery.map(d => `<span>${DELIVERY_ICONS[d]} ${DELIVERY[d]}</span>`).join('')}</p>` : ''}
       <div class="actions">
-        ${url ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(url)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">زيارة المتجر ↗</a>` : ''}
+        ${main ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(main.href)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">${main.label}</a>` : ''}
         <button type="button" class="btn btn-ghost btn-sm" data-action="locate">على الخريطة</button>
         <span class="social">${socialLinks(s)}</span>
       </div>
     </li>`;
 }
 
-function popupHtml(s) {
-  const url = safeUrl(s.url);
+function popupHtml(s, loc) {
+  const main = primaryLink(s);
   return `<div class="popup">
     <strong>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.name)}</strong>
-    <span>${escapeHtml(s.category)} · ${escapeHtml(s.city)}</span>
-    ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">زيارة المتجر ↗</a>` : ''}
+    <span>${escapeHtml(s.category)} · ${escapeHtml(loc.city)}${loc.district ? ` · ${escapeHtml(loc.district)}` : ''}</span>
+    ${main ? `<a href="${escapeHtml(main.href)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">${main.label}</a>` : ''}
   </div>`;
 }
 
@@ -151,16 +179,21 @@ function render({ fit = false } = {}) {
   cluster.clearLayers();
   markers.clear();
   for (const s of rows) {
-    const m = L.marker([s.lat, s.lng], {
-      icon: pinIcon(s.location_type, CATEGORY_ICONS[s.category]), title: s.name,
-    }).bindPopup(popupHtml(s));
-    m.on('click', () => select(s.id, { fromMap: true }));
-    markers.set(String(s.id), m);
-    cluster.addLayer(m);
+    const list = s.shownLocs.map((l, i) => {
+      const m = L.marker([l.lat, l.lng], {
+        icon: pinIcon('store', CATEGORY_ICONS[s.category]), title: s.name,
+      }).bindPopup(popupHtml(s, l));
+      m.on('click', () => select(s.id, { fromMap: true }));
+      cluster.addLayer(m);
+      return m;
+    });
+    // أقرب موقع أولًا حتى يقرّب عليه زر «على الخريطة»
+    if (s.nearest) list.unshift(list.splice(s.nearest, 1)[0]);
+    markers.set(String(s.id), list);
   }
 
   if (fit && rows.length) {
-    const points = rows.map(s => [s.lat, s.lng]);
+    const points = rows.flatMap(s => s.shownLocs.map(l => [l.lat, l.lng]));
     if (state.userLoc) points.push([state.userLoc.lat, state.userLoc.lng]);
     map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 14 });
   }
@@ -174,7 +207,7 @@ function select(id, { fromMap = false } = {}) {
     card.classList.add('selected');
     if (fromMap) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  const marker = markers.get(String(id));
+  const marker = markers.get(String(id))?.[0];
   if (marker && !fromMap) {
     cluster.zoomToShowLayer(marker, () => marker.openPopup());
   }
@@ -203,6 +236,7 @@ els.chips.addEventListener('click', e => {
 
 els.q.addEventListener('input', () => render());
 els.radius.addEventListener('change', () => render({ fit: true }));
+els.entity.addEventListener('change', () => render({ fit: true }));
 els.region.addEventListener('change', () => {
   updateCities();
   render({ fit: true });
@@ -232,7 +266,7 @@ function focusUser(accuracy = 0) {
   const { lat, lng } = state.userLoc;
   const near = filtered().slice(0, 15);
   if (near.length) {
-    const points = near.map(s => [s.lat, s.lng]);
+    const points = near.map(s => [mainLoc(s).lat, mainLoc(s).lng]);
     points.push([lat, lng]);
     map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 15 });
   } else {
@@ -327,7 +361,7 @@ async function init() {
 
 async function load({ fit = false } = {}) {
   try {
-    state.stores = (await fetchStores()).map(s => ({ ...s, id: String(s.id) }));
+    state.stores = (await fetchStores()).map(s => ({ ...s, id: String(s.id), locs: storeLocations(s) }));
     render({ fit });
   } catch (err) {
     els.count.textContent = 'تعذر التحميل';
