@@ -5,56 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>دكان الحي | متاجر إلكترونية قريبة منك</title>
   <meta name="description" content="دكان الحي: اكتشف المتاجر الإلكترونية القريبة منك على الخريطة، حسب مدينتك وحيّك.">
-  <meta name="theme-color" content="#1f6f5c">
-  <link rel="icon" href="assets/img/logo.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2ee6">
+  <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Lalezar&family=Readex+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="">
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" integrity="sha384-wgw+aLYNQ7dlhK47ZPK7FRACiq7ROZwgFNg0m04avm4CaXS+Z9Y7nMu8yNjBKYC+" crossorigin="">
   <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="browse">
   <header class="topbar">
-    <a class="brand" href="./">
-      <img src="assets/img/logo.svg" alt="" width="36" height="36">
-      <span>
-        <strong>دكان الحي</strong>
-        <small>متاجر إلكترونية من حيّك</small>
-      </span>
+    <a class="brand" href="./" aria-label="دكان الحي، الصفحة الرئيسية">
+      <img src="assets/img/logo.svg" alt="دكان الحي" height="40">
     </a>
-    <a class="btn btn-primary" href="add-store.html">أضف متجرك</a>
+    <span class="tagline">متاجر أونلاين من حيّك 📍</span>
+    <a class="btn btn-primary btn-pop" href="add-store.html"><span class="plus">+</span> أضف متجرك</a>
   </header>
 
-  <div class="demo-banner" id="demoBanner" hidden>وضع تجريبي: المتاجر المعروضة وهمية لأغراض العرض فقط.</div>
+  <div class="demo-banner" id="demoBanner" hidden>🧪 وضع تجريبي: المتاجر المعروضة وهمية لأغراض العرض فقط.</div>
 
   <section class="filters" aria-label="تصفية المتاجر">
-    <input type="search" id="q" placeholder="ابحث باسم المتجر أو المنتج…" aria-label="بحث">
-    <select id="region" aria-label="المنطقة"><option value="">كل المناطق</option></select>
-    <select id="city" aria-label="المدينة" disabled><option value="">كل المدن</option></select>
-    <select id="category" aria-label="التصنيف"><option value="">كل التصنيفات</option></select>
-    <button type="button" class="btn btn-outline" id="nearMe">📍 القريبة مني</button>
-    <select id="radius" aria-label="المسافة" hidden>
-      <option value="">أي مسافة</option>
-      <option value="5">خلال 5 كم</option>
-      <option value="10">خلال 10 كم</option>
-      <option value="25">خلال 25 كم</option>
-      <option value="50">خلال 50 كم</option>
-    </select>
+    <div class="filter-row">
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="وش تدوّر عليه؟ قهوة، عطور، هدايا…" aria-label="بحث">
+      </label>
+      <div class="filter-scroll">
+        <select id="region" aria-label="المنطقة"><option value="">🗺️ كل المناطق</option></select>
+        <select id="city" aria-label="المدينة" disabled><option value="">🏙️ كل المدن</option></select>
+        <button type="button" class="btn btn-near" id="nearMe"><span class="pulse"></span> القريبة مني</button>
+        <select id="radius" aria-label="المسافة" hidden>
+          <option value="">أي مسافة</option>
+          <option value="5">خلال 5 كم</option>
+          <option value="10">خلال 10 كم</option>
+          <option value="25">خلال 25 كم</option>
+          <option value="50">خلال 50 كم</option>
+        </select>
+      </div>
+    </div>
+    <div class="chips" id="categoryChips" role="group" aria-label="التصنيفات"></div>
   </section>
 
   <main class="split">
     <div id="map" class="map" role="region" aria-label="خريطة المتاجر"></div>
-    <section class="results" aria-label="قائمة المتاجر">
-      <div class="results-head">
-        <h1 id="count">جارٍ التحميل…</h1>
+    <section class="sheet" aria-label="قائمة المتاجر">
+      <div class="sheet-head">
+        <span class="grabber" aria-hidden="true"></span>
+        <div>
+          <h1 id="count">جارٍ التحميل…</h1>
+          <p class="subtitle" id="subtitle"></p>
+        </div>
         <div class="legend">
-          <span><i class="dot dot-store"></i>موقع متجر</span>
-          <span><i class="dot dot-warehouse"></i>موقع مخزون</span>
+          <span><i class="dot dot-store"></i>متجر</span>
+          <span><i class="dot dot-warehouse"></i>مخزون</span>
         </div>
       </div>
-      <p class="status" id="status" hidden></p>
+      <div class="status" id="status" hidden></div>
       <ul class="cards" id="list"></ul>
     </section>
   </main>

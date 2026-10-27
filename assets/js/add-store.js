@@ -1,4 +1,4 @@
-import { REGIONS, CATEGORIES, DELIVERY } from './constants.js';
+import { REGIONS, CATEGORIES, CATEGORY_ICONS, DELIVERY, DELIVERY_ICONS } from './constants.js';
 import { submitStore, isDemo } from './api.js';
 import { createMap, pinIcon } from './map.js';
 import {
@@ -11,10 +11,10 @@ const $ = id => document.getElementById(id);
 
 if (isDemo) $('demoBanner').hidden = false;
 
-for (const c of CATEGORIES) f.category.add(new Option(c, c));
+for (const c of CATEGORIES) f.category.add(new Option(`${CATEGORY_ICONS[c]}  ${c}`, c));
 for (const r of REGIONS) f.region.add(new Option(r.name, r.name));
 $('deliveryChecks').innerHTML = Object.entries(DELIVERY).map(([value, label]) =>
-  `<label class="check"><input type="checkbox" name="delivery" value="${value}"><span>${label}</span></label>`).join('');
+  `<label class="toggle"><input type="checkbox" name="delivery" value="${value}"><span>${DELIVERY_ICONS[value]} ${label}</span></label>`).join('');
 
 function updateCities(selected = '') {
   const region = REGIONS.find(r => r.name === f.region.value);
@@ -50,7 +50,7 @@ function setLocation(lat, lng, { fly = true } = {}) {
   }
   picked = { lat, lng };
   if (!marker) {
-    marker = L.marker([lat, lng], { draggable: true, icon: pinIcon(kind()) }).addTo(map);
+    marker = L.marker([lat, lng], { draggable: true, icon: pinIcon(kind(), CATEGORY_ICONS[f.category.value]) }).addTo(map);
     marker.on('dragend', () => {
       const p = marker.getLatLng();
       setLocation(p.lat, p.lng, { fly: false });
@@ -79,8 +79,9 @@ function showLinkError(msg) {
 
 map.on('click', e => setLocation(e.latlng.lat, e.latlng.lng, { fly: false }));
 
-form.querySelectorAll('input[name="location_type"]').forEach(r =>
-  r.addEventListener('change', () => marker?.setIcon(pinIcon(kind()))));
+const refreshPin = () => marker?.setIcon(pinIcon(kind(), CATEGORY_ICONS[f.category.value]));
+form.querySelectorAll('input[name="location_type"]').forEach(r => r.addEventListener('change', refreshPin));
+f.category.addEventListener('change', refreshPin);
 
 $('parseLink').addEventListener('click', () => {
   const result = parseLocation($('mapLink').value);
@@ -173,7 +174,7 @@ form.addEventListener('submit', async e => {
 
   const btn = $('submitBtn');
   btn.disabled = true;
-  btn.textContent = 'جارٍ الإرسال…';
+  btn.textContent = 'لحظة… جارٍ الإرسال';
   try {
     await submitStore(payload);
     form.hidden = true;
@@ -183,6 +184,6 @@ form.addEventListener('submit', async e => {
     formError(err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'إرسال الطلب';
+    btn.textContent = 'أرسل طلبك 🚀';
   }
 });
