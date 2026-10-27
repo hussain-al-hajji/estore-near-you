@@ -222,6 +222,15 @@ select:disabled { background: #f3f1fa; color: var(--muted); }
 .social { display: flex; gap: 6px; margin-inline-start: auto; }
 
 /* ---------- الخريطة ---------- */
+.geo-note {
+  position: absolute; z-index: 500; top: 12px; left: 50%; translate: -50% 0;
+  width: max-content; max-width: calc(100% - 120px); padding: 8px 16px; border-radius: 16px;
+  background: var(--ink); color: #fff; font-size: 13.5px; font-weight: 500; text-align: center;
+  box-shadow: 3px 3px 0 var(--lime), 0 8px 24px rgb(0 0 0 / 20%); animation: pop-in .25s both;
+}
+.geo-warn { background: #fff; color: var(--ink); box-shadow: 3px 3px 0 var(--coral), 0 8px 24px rgb(0 0 0 / 18%); }
+@media (max-width: 640px) { .geo-note { max-width: calc(100% - 80px); font-size: 13px; } }
+
 .soft-tiles { filter: saturate(.55) brightness(1.03) contrast(.96); }
 .leaflet-container { font-family: var(--font); }
 .leaflet-control-zoom { border: none !important; box-shadow: var(--shadow) !important; border-radius: 14px !important; overflow: hidden; }

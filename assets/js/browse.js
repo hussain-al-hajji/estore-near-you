@@ -1,6 +1,7 @@
 import { REGIONS, CATEGORIES, CATEGORY_ICONS, DELIVERY, DELIVERY_ICONS, LOCATION_TYPES } from './constants.js';
 import { fetchStores, isDemo, logEvent } from './api.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
+import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
   escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage,
 } from './utils.js';
@@ -9,7 +10,7 @@ const $ = id => document.getElementById(id);
 const els = {
   q: $('q'), region: $('region'), city: $('city'), chips: $('categoryChips'),
   nearMe: $('nearMe'), radius: $('radius'), list: $('list'), count: $('count'),
-  subtitle: $('subtitle'), status: $('status'),
+  subtitle: $('subtitle'), status: $('status'), geoNote: $('geoNote'),
 };
 
 const state = { stores: [], userLoc: null, selectedId: null, category: '' };
@@ -21,6 +22,7 @@ const cluster = L.markerClusterGroup({
 });
 map.addLayer(cluster);
 let userMarker = null;
+let accuracyCircle = null;
 
 const ICONS = {
   instagram: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" class="fill"/></svg>',
@@ -138,7 +140,9 @@ function render({ fit = false } = {}) {
   }, { once: true }));
 
   els.status.hidden = rows.length > 0;
-  if (!rows.length) {
+  if (!rows.length && state.userLoc && els.radius.value) {
+    els.status.innerHTML = `<span class="big">📍</span><strong>ما فيه متاجر خلال ${escapeHtml(els.radius.value)} كم منك</strong><span>وسّع المسافة أو تصفح كل المتاجر.</span><button type="button" class="btn btn-primary btn-sm" data-action="widen">وسّع البحث</button>`;
+  } else if (!rows.length) {
     els.status.innerHTML = state.stores.length
       ? '<span class="big">🔍</span><strong>ما لقينا متاجر بهالفلاتر</strong><span>جرّب توسّع البحث أو تغيّر التصنيف.</span>'
       : '<span class="big">🛍️</span><strong>ما فيه متاجر للحين</strong><span>كن أول متجر في حيّك!</span><a class="btn btn-primary btn-sm" href="#add">أضف متجرك</a>';
@@ -212,33 +216,88 @@ els.city.addEventListener('change', () => {
   storage('dukkan.city', els.city.value);
 });
 
-const nearMeLabel = els.nearMe.innerHTML;
-els.nearMe.addEventListener('click', () => {
-  if (!navigator.geolocation) {
-    alert('متصفحك لا يدعم تحديد الموقع.');
-    return;
+// ---- «القريبة مني» ----
+
+let geoNoteTimer = null;
+function showGeoNote(text, kind = 'info', autoHide = false) {
+  clearTimeout(geoNoteTimer);
+  els.geoNote.textContent = text;
+  els.geoNote.className = `geo-note geo-${kind}`;
+  els.geoNote.hidden = !text;
+  if (autoHide) geoNoteTimer = setTimeout(() => { els.geoNote.hidden = true; }, 4000);
+}
+
+// تقريب الخريطة على المستخدم: نُظهر أقرب المتاجر معه، أو نقرّب عليه إن لم يوجد متاجر قريبة
+function focusUser(accuracy = 0) {
+  const { lat, lng } = state.userLoc;
+  const near = filtered().slice(0, 15);
+  if (near.length) {
+    const points = near.map(s => [s.lat, s.lng]);
+    points.push([lat, lng]);
+    map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 15 });
+  } else {
+    map.setView([lat, lng], accuracy > 5000 ? 11 : accuracy > 1000 ? 13 : 15);
   }
-  els.nearMe.disabled = true;
-  els.nearMe.textContent = 'لحظة…';
-  navigator.geolocation.getCurrentPosition(pos => {
-    state.userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    if (userMarker) userMarker.remove();
-    userMarker = L.marker([state.userLoc.lat, state.userLoc.lng], { icon: userIcon, zIndexOffset: 1000 })
-      .bindTooltip('أنت هنا').addTo(map);
+}
+
+function setUserLocation(p, { manual = false } = {}) {
+  if (!state.userLoc) {
     // البحث بالقرب يتجاوز فلتر المنطقة والمدينة
     els.region.value = '';
     updateCities();
     els.radius.hidden = false;
     if (!els.radius.value) els.radius.value = '25';
-    els.nearMe.disabled = false;
-    els.nearMe.innerHTML = nearMeLabel;
+  }
+  state.userLoc = { lat: p.lat, lng: p.lng };
+  const ll = [p.lat, p.lng];
+  if (!userMarker) {
+    userMarker = L.marker(ll, { icon: userIcon, zIndexOffset: 1000, draggable: true })
+      .bindTooltip('أنت هنا · اسحبني لتعديل موقعك')
+      .addTo(map);
+    userMarker.on('dragend', () => {
+      const q = userMarker.getLatLng();
+      setUserLocation({ lat: q.lat, lng: q.lng }, { manual: true });
+      showGeoNote('📍 عدّلت موقعك يدويًا', 'ok', true);
+    });
+  } else {
+    userMarker.setLatLng(ll);
+  }
+  accuracyCircle?.remove();
+  accuracyCircle = null;
+  if (!manual && p.accuracy > 30) {
+    accuracyCircle = L.circle(ll, {
+      radius: p.accuracy, color: '#2fb8ff', weight: 1, fillOpacity: 0.08, interactive: false,
+    }).addTo(map);
+  }
+  render();
+  if (!manual) focusUser(p.accuracy);
+}
+
+const nearMeLabel = els.nearMe.innerHTML;
+els.nearMe.addEventListener('click', async () => {
+  els.nearMe.disabled = true;
+  els.nearMe.textContent = 'جارٍ تحديد موقعك…';
+  showGeoNote('📡 نحدد موقعك بدقة، لحظات…');
+  try {
+    const best = await locate({ onUpdate: p => setUserLocation(p) });
     els.nearMe.classList.add('active');
-    render({ fit: true });
-  }, () => {
+    if (best.accuracy > 1500) {
+      showGeoNote(`⚠️ موقعك تقريبي (${accuracyLabel(best.accuracy)}). اسحب النقطة الزرقاء لمكانك الصحيح، أو جرّب من الجوال مع تشغيل الـ GPS.`, 'warn');
+    } else {
+      showGeoNote(`📍 تم تحديد موقعك (${accuracyLabel(best.accuracy)})`, 'ok', true);
+    }
+  } catch (err) {
+    showGeoNote(geoErrorMessage(err), 'warn');
+  } finally {
     els.nearMe.disabled = false;
     els.nearMe.innerHTML = nearMeLabel;
-    alert('ما قدرنا نوصل لموقعك. اسمح للموقع من إعدادات المتصفح، أو اختر مدينتك من القائمة.');
-  }, { enableHighAccuracy: true, timeout: 10000 });
+  }
+});
+
+els.status.addEventListener('click', e => {
+  if (!e.target.closest('[data-action="widen"]')) return;
+  els.radius.value = '';
+  render({ fit: true });
 });
 
 // إحصائيات لوحة التحكم: زيارة واحدة لكل جلسة، ونقرة لكل فتح متجر

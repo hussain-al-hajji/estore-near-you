@@ -1,6 +1,7 @@
 import { REGIONS, CATEGORIES, CATEGORY_ICONS, DELIVERY, DELIVERY_ICONS, SA_CENTER, SA_ZOOM } from './constants.js';
 import { submitStore, isDemo } from './api.js';
 import { createMap, pinIcon } from './map.js';
+import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
   inSaudi, nearestCity, parseLocation, normalizeUrl, normalizeHandle, normalizePhone, safeUrl,
 } from './utils.js';
@@ -95,17 +96,22 @@ $('mapLink').addEventListener('keydown', e => {
   }
 });
 
-$('useMyLocation').addEventListener('click', () => {
-  if (!navigator.geolocation) return showLinkError('متصفحك لا يدعم تحديد الموقع.');
+const useMyLocationLabel = $('useMyLocation').innerHTML;
+$('useMyLocation').addEventListener('click', async () => {
   const btn = $('useMyLocation');
   btn.disabled = true;
-  navigator.geolocation.getCurrentPosition(pos => {
+  btn.textContent = 'جارٍ تحديد موقعك…';
+  try {
+    const best = await locate({ onUpdate: p => setLocation(p.lat, p.lng) });
+    if (best.accuracy > 300) {
+      showLinkError(`⚠️ دقة الموقع ضعيفة (${accuracyLabel(best.accuracy)}). كبّر الخريطة واسحب الدبوس لمكان متجرك بالضبط.`);
+    }
+  } catch (err) {
+    showLinkError(`${geoErrorMessage(err)} وتقدر تحدده يدويًا على الخريطة أو تلصق رابط الموقع.`);
+  } finally {
     btn.disabled = false;
-    setLocation(pos.coords.latitude, pos.coords.longitude);
-  }, () => {
-    btn.disabled = false;
-    showLinkError('لم نتمكن من الوصول لموقعك. حدده يدويًا على الخريطة أو الصق رابط الموقع.');
-  }, { enableHighAccuracy: true, timeout: 10000 });
+    btn.innerHTML = useMyLocationLabel;
+  }
 });
 
 // ---- الإرسال ----
