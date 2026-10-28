@@ -16,6 +16,7 @@ const DEMO = {
   accounts: 'dukkan.demoAccounts',
   ownerSession: 'dukkan.demoOwnerSession',
   impressions: 'dukkan.demoImpressions',
+  reports: 'dukkan.demoReports',
 };
 
 export const isDemo = !LIVE;
@@ -125,6 +126,29 @@ export async function searchStores(params) {
     throw err;
   });
   return searchLocal(await allStores, params);
+}
+
+// بلاغ من زائر عن متجر (معلومات خاطئة، نشاط مغلق...) يروح للوحة التحكم
+export async function submitReport({ storeId, reason, details, contact }) {
+  if (LIVE) {
+    const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/submit_report`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ p_store: storeId, p_reason: reason, p_details: details || null, p_contact: contact || null }),
+    });
+    if (res.ok) return;
+    if (res.status === 429) throw new Error('أرسلت بلاغات كثيرة، جرّب بعد شوي.');
+    if (res.status === 404) throw new Error('البلاغات تشتغل قريبًا، جرّب لاحقًا.');
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message && /[\u0600-\u06FF]/.test(body.message) ? body.message : 'ما قدرنا نرسل البلاغ، جرّب بعد شوي.');
+  }
+  const reports = storage(DEMO.reports) || [];
+  if (reports.some(r => r.store_id === storeId && r.status === 'open' && r.demo_self)) return;
+  reports.push({
+    id: Date.now(), store_id: storeId, reason, details: details || null, contact: contact || null,
+    status: 'open', created_at: new Date().toISOString(), demo_self: true,
+  });
+  storage(DEMO.reports, reports);
 }
 
 // يدخل بحساب صاحب المتجر أو ينشئه، حتى يرتبط المتجر بحسابه

@@ -1,6 +1,6 @@
-import { REGIONS, DELIVERY, DELIVERY_ICONS } from './constants.js';
+import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS } from './constants.js';
 import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
-import { searchStores, refreshStores, isDemo, logEvent, logImpressions } from './api.js';
+import { searchStores, refreshStores, submitReport, isDemo, logEvent, logImpressions } from './api.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
@@ -40,6 +40,7 @@ const ICONS = {
   x: '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/></svg>',
   tiktok: '<svg viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5M14 3c.6 2.6 2.6 4.6 5 4.8"/></svg>',
   snapchat: '<svg viewBox="0 0 24 24"><path d="M12 3.5c3 0 5 2.2 5 5.2v2.1l1.8-.5c.6.6.3 1.3-.4 1.6l-1.6.7c.6 1.8 1.9 3.1 3.6 3.6-.3.9-1.4 1.1-2.4 1.2l-.4 1.3-1.6-.2c-1 .8-2.4 1.8-4 1.8s-3-1-4-1.8l-1.6.2-.4-1.3c-1-.1-2.1-.3-2.4-1.2 1.7-.5 3-1.8 3.6-3.6l-1.6-.7c-.7-.3-1-1-.4-1.6l1.8.5V8.7c0-3 2-5.2 5-5.2z"/></svg>',
+  flag: '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
   whatsapp: '<svg viewBox="0 0 24 24"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9.5c.5 2.2 2.3 4 4.5 4.5"/></svg>',
 };
 const AVATAR_THEMES = ['violet', 'coral', 'lime', 'sky', 'pink'];
@@ -199,6 +200,7 @@ function cardHtml(s) {
         ${main ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(main.href)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">${main.label}</a>` : ''}
         <button type="button" class="btn btn-ghost btn-sm" data-action="locate">على الخريطة</button>
         <span class="social">${socialLinks(s)}</span>
+        <button type="button" class="icon-btn report-btn" data-action="report" title="بلّغ عن المتجر" aria-label="بلّغ عن ${escapeHtml(s.name)}">${ICONS.flag}</button>
       </div>
     </li>`;
 }
@@ -363,6 +365,10 @@ function select(id, { fromMap = false } = {}) {
 
 els.list.addEventListener('click', e => {
   if (e.target.closest('a')) return;
+  if (e.target.closest('[data-action="report"]')) {
+    openReport(e.target.closest('.card').dataset.id);
+    return;
+  }
   const more = e.target.closest('[data-action="more"]');
   if (more) {
     more.disabled = true;
@@ -515,6 +521,72 @@ els.status.addEventListener('click', e => {
   } else if (action === 'browse-all') {
     gateOff();
     scheduleSearch({ fit: true });
+  }
+});
+
+// ---- البلاغ عن متجر ----
+
+const report = {
+  dialog: $('reportDialog'), form: $('reportForm'), error: $('reportError'), storeId: null,
+};
+$('reportReasons').innerHTML = Object.entries(REPORT_REASONS).map(([key, r]) =>
+  `<label class="toggle"><input type="radio" name="reason" value="${key}" required><span>${r.icon} ${r.label}</span></label>`).join('');
+
+function openReport(id) {
+  const s = state.results.find(x => x.id === id);
+  if (!s) return;
+  report.storeId = id;
+  report.form.reset();
+  report.form.classList.remove('validated');
+  report.error.hidden = true;
+  report.form.querySelector('.report-body').hidden = false;
+  report.form.querySelector('.report-done').hidden = true;
+  $('reportStore').textContent = s.name;
+  $('reportDetailsHint').textContent = '(اختياري)';
+  report.dialog.showModal();
+}
+
+report.form.addEventListener('change', e => {
+  if (e.target.name !== 'reason') return;
+  const other = e.target.value === 'other';
+  report.form.details.required = other;
+  $('reportDetailsHint').textContent = other ? '(مطلوب)' : '(اختياري)';
+});
+report.dialog.addEventListener('click', e => {
+  // الضغط خارج النافذة أو على زر الإغلاق
+  if (e.target === report.dialog || e.target.closest('[data-close]')) report.dialog.close();
+});
+report.form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = report.form;
+  report.error.hidden = true;
+  f.classList.add('validated');
+  if (!f.reason.value) {
+    report.error.textContent = 'اختر سبب البلاغ.';
+    report.error.hidden = false;
+    return;
+  }
+  if (!f.checkValidity()) {
+    report.error.textContent = 'اكتب تفاصيل البلاغ.';
+    report.error.hidden = false;
+    return;
+  }
+  const button = f.querySelector('[type="submit"]');
+  button.disabled = true;
+  try {
+    // الحقل المخفي يعبّيه البوت فقط: نتظاهر بالنجاح بدون إرسال
+    if (!f.website.value) {
+      await submitReport({
+        storeId: report.storeId, reason: f.reason.value, details: f.details.value.trim(), contact: f.contact.value.trim(),
+      });
+    }
+    f.querySelector('.report-body').hidden = true;
+    f.querySelector('.report-done').hidden = false;
+  } catch (err) {
+    report.error.textContent = err.message;
+    report.error.hidden = false;
+  } finally {
+    button.disabled = false;
   }
 });
 

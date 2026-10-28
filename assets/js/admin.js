@@ -1,4 +1,4 @@
-import { REGIONS, DELIVERY, DELIVERY_ICONS } from './constants.js';
+import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS } from './constants.js';
 import {
   CATEGORIES, CATEGORY_ICONS, SETTINGS, ENTITY_TYPES, REGISTRANT_ROLES, applySettings, deepMerge, graceLabel,
 } from './settings.js';
@@ -36,6 +36,7 @@ const state = {
   stats: null,
   payments: [],
   edits: [],
+  reports: [],
   adminSettings: structuredClone(DEFAULT_ADMIN_SETTINGS),
   range: 30,
   clicks: new Map(),
@@ -190,13 +191,15 @@ $('logoutBtn').addEventListener('click', async () => {
 async function loadAll() {
   document.body.classList.add('loading');
   try {
-    const [stores, stats, payments, adminSettings, edits] = await Promise.all([
+    const [stores, stats, payments, adminSettings, edits, reports] = await Promise.all([
       backend.stores(), backend.eventStats(state.range * 2), backend.payments(), backend.adminSettings(),
       backend.edits().catch(() => []),
+      backend.reports().catch(() => []),
     ]);
     state.stores = stores;
     state.payments = payments;
     state.edits = edits;
+    state.reports = reports;
     state.adminSettings = deepMerge(structuredClone(DEFAULT_ADMIN_SETTINGS), adminSettings);
     setStats(stats);
     renderAll();
@@ -229,7 +232,7 @@ function setStats(stats) {
 }
 
 function renderAll() {
-  const pending = state.stores.filter(s => s.status === 'pending').length + state.edits.length;
+  const pending = state.stores.filter(s => s.status === 'pending').length + state.edits.length + state.reports.length;
   $('pendingBadge').textContent = pending;
   $('pendingBadge').hidden = !pending;
   renderOverview();
@@ -257,6 +260,7 @@ function renderOverview() {
   const tiles = [
     { label: 'بانتظار المراجعة', value: pending, sub: pending ? 'اضغط للمراجعة ←' : 'كل الطلبات مراجعة 👌', accent: pending > 0, status: 'pending' },
     { label: 'طلبات تعديل', value: state.edits.length, sub: state.edits.length ? 'تعديلات من أصحاب المتاجر ←' : 'لا توجد طلبات', accent: state.edits.length > 0, status: 'edits' },
+    { label: 'بلاغات مفتوحة', value: state.reports.length, sub: state.reports.length ? `عن ${formatNumber(reportedStores())} متجر، اضغط للمراجعة ←` : 'لا توجد بلاغات 👌', warn: state.reports.length > 0, status: 'reports' },
     { label: 'متاجر معتمدة', value: approved.length, sub: `في ${formatNumber(cities)} مدينة` },
     { label: 'اشتراكات متأخرة', value: overdue, sub: overdue ? 'انتهت مهلتها، اضغط للعرض ←' : 'لا يوجد تأخير 👌', warn: overdue > 0, billing: 'overdue' },
     { label: 'مستحقة قريبًا', value: soon, sub: 'خلال 30 يوم أو في المهلة', billing: 'soon' },
@@ -355,7 +359,8 @@ function filteredStores() {
   const category = $('tableCategory').value;
   const billing = $('tableBilling').value;
   const rows = state.stores.filter(s =>
-    (state.status === 'all' || s.status === state.status || (state.status === 'edits' && editFor(s.id)))
+    (state.status === 'all' || s.status === state.status || (state.status === 'edits' && editFor(s.id))
+      || (state.status === 'reports' && reportsFor(s.id).length))
     && (!region || storeLocations(s).some(l => l.region === region))
     && (!category || storeCategories(s).includes(category))
     && billingMatches(s, billing)
@@ -376,7 +381,8 @@ function renderTable() {
   const counts = { all: state.stores.length };
   for (const s of state.stores) counts[s.status] = (counts[s.status] || 0) + 1;
   counts.edits = state.edits.length;
-  $('statusTabs').innerHTML = [['all', 'الكل'], ['pending', 'قيد المراجعة'], ['edits', '✏️ طلبات تعديل'], ['approved', 'معتمد'], ['suspended', 'موقوف'], ['rejected', 'مرفوض']]
+  counts.reports = reportedStores();
+  $('statusTabs').innerHTML = [['all', 'الكل'], ['pending', 'قيد المراجعة'], ['edits', '✏️ طلبات تعديل'], ['reports', '🚩 بلاغات'], ['approved', 'معتمد'], ['suspended', 'موقوف'], ['rejected', 'مرفوض']]
     .map(([k, label]) => `<button type="button" class="status-tab${state.status === k ? ' active' : ''}" data-status="${k}" role="tab" aria-selected="${state.status === k}">${label} <span>${counts[k] || 0}</span></button>`)
     .join('');
 
@@ -409,7 +415,7 @@ function renderTable() {
         <td class="nowrap"><span>${escapeHtml(s.owner?.owner_name || '—')}${s.owner?.registrant_role === 'employee' ? ' <em class="role-tag">موظف</em>' : ''}</span>${phone ? `<small><a href="https://wa.me/${escapeHtml(phone)}" target="_blank" rel="noopener" title="واتساب" dir="ltr">${escapeHtml(localPhone(phone))}</a></small>` : ''}</td>
         <td class="num">${formatNumber(state.clicks.get(s.id) || 0)}</td>
         <td class="nowrap" title="${escapeHtml(DATETIME.format(new Date(s.created_at)))}">${relative(s.created_at)}</td>
-        <td class="nowrap">${statusPill(s.status)}${editFor(s.id) ? '<span class="status-pill status-edit">✏️ تعديل</span>' : ''}${billingLine(s)}</td>
+        <td class="nowrap">${statusPill(s.status)}${editFor(s.id) ? '<span class="status-pill status-edit">✏️ تعديل</span>' : ''}${reportsFor(s.id).length ? `<span class="status-pill status-report">🚩 ${formatNumber(reportsFor(s.id).length)}</span>` : ''}${billingLine(s)}</td>
         <td class="nowrap row-actions">${actions}</td>
       </tr>`;
   }).join('');
@@ -489,6 +495,15 @@ async function act(id, action) {
       await backend.reviewEdit(edit.id, approve, $('editNote').value.trim());
       [state.stores, state.edits] = await Promise.all([backend.stores(), backend.edits()]);
       toast(approve ? '✅ تم اعتماد التعديل وصار ظاهر في المنصة' : 'تم رفض التعديل');
+      openDrawer(id);
+    } else if (action.startsWith('report-')) {
+      // report-resolve:12 لبلاغ واحد، أو report-resolve لكل بلاغات المتجر
+      const [, verb, reportId] = action.split(/[-:]/);
+      const ids = reportId ? [reportId] : reportsFor(id).map(r => String(r.id));
+      const status = verb === 'dismiss' ? 'dismissed' : 'resolved';
+      await Promise.all(ids.map(rid => backend.closeReport(state.reports.find(r => String(r.id) === rid).id, status)));
+      state.reports = state.reports.filter(r => !ids.includes(String(r.id)));
+      toast(status === 'resolved' ? '✅ تم إغلاق البلاغ كمعالَج' : 'تم تجاهل البلاغ');
       openDrawer(id);
     } else if (action === 'note') {
       const note = $('adminNote').value.trim() || null;
@@ -584,6 +599,37 @@ function subscriptionSection(s) {
 
 function editFor(id) {
   return state.edits.find(e => String(e.store_id) === id);
+}
+
+function reportsFor(id) {
+  return state.reports.filter(r => String(r.store_id) === id);
+}
+
+function reportedStores() {
+  return new Set(state.reports.map(r => String(r.store_id))).size;
+}
+
+function reportsSection(s) {
+  const reports = reportsFor(s.id);
+  if (!reports.length) return '';
+  return `
+    <section class="drawer-section reports-review">
+      <h3>🚩 بلاغات الزوار <small>${formatNumber(reports.length)} مفتوح</small></h3>
+      <ul class="report-list">${reports.map(r => {
+        const reason = REPORT_REASONS[r.reason] || REPORT_REASONS.other;
+        return `<li>
+          <div class="report-head"><strong>${reason.icon} ${reason.label}</strong><small title="${escapeHtml(DATETIME.format(new Date(r.created_at)))}">${relative(r.created_at)}</small></div>
+          ${r.details ? `<p>${escapeHtml(r.details)}</p>` : ''}
+          ${r.contact ? `<p class="muted">للتواصل: <span dir="ltr">${escapeHtml(r.contact)}</span></p>` : ''}
+          <div class="drawer-actions inline">
+            <button type="button" class="btn btn-ghost btn-sm" data-action="report-resolve:${escapeHtml(String(r.id))}">✓ تمت المعالجة</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-action="report-dismiss:${escapeHtml(String(r.id))}">تجاهل</button>
+          </div>
+        </li>`;
+      }).join('')}</ul>
+      ${reports.length > 1 ? '<button type="button" class="btn btn-ghost btn-sm" data-action="report-resolve">✓ إغلاق كل البلاغات كمعالَجة</button>' : ''}
+      <p class="hint">إذا البلاغ صحيح: عدّل حالة المتجر من الأعلى (إيقاف الظهور مثلًا) أو تواصل مع صاحبه، ثم أغلق البلاغ.</p>
+    </section>`;
 }
 
 function editSection(s) {
@@ -690,6 +736,7 @@ function openDrawer(id) {
       ${s.status !== 'pending' ? btn('pending', '⏳ إرجاع للمراجعة') : ''}
     </div>
 
+    ${reportsSection(s)}
     ${editSection(s)}
     ${subscriptionSection(s)}
 

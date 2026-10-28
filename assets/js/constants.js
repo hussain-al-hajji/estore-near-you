@@ -67,3 +67,13 @@ export const SA_ZOOM = 5;
 
 // الحد الأقصى لمجالات المتجر الواحد (يطابق قاعدة البيانات)
 export const MAX_CATEGORIES = 5;
+
+// أسباب البلاغ عن متجر (تطابق قاعدة البيانات)
+export const REPORT_REASONS = {
+  wrong_info: { icon: '📝', label: 'معلوماته خاطئة' },
+  closed: { icon: '🚪', label: 'النشاط مغلق' },
+  wrong_location: { icon: '📍', label: 'الموقع غير صحيح' },
+  broken_link: { icon: '🔗', label: 'الرابط أو الحساب لا يعمل' },
+  scam: { icon: '⚠️', label: 'احتيال أو مخالفة' },
+  other: { icon: '💬', label: 'سبب آخر' },
+};

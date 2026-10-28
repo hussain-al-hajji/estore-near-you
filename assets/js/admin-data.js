@@ -47,6 +47,11 @@ function liveBackend(sb) {
       check(await sb.rpc('admin_review_edit', { p_edit: id, p_approve: approve, p_note: note || null }));
     },
     performance: async (id, days) => check(await sb.rpc('store_performance', { p_store: id, p_days: days })),
+    reports: async () => check(await sb.from('store_reports').select('id, store_id, reason, details, contact, status, created_at')
+      .eq('status', 'open').order('created_at', { ascending: false })),
+    closeReport: async (id, status) => {
+      check(await sb.from('store_reports').update({ status, resolved_at: new Date().toISOString() }).eq('id', id));
+    },
     storageStats: async () => check(await sb.rpc('admin_storage_stats')),
     compactStats: async () => check(await sb.rpc('compact_stats')),
     adminSettings: async () => check(await sb.from('admin_settings').select('data').eq('id', 1).maybeSingle())?.data || {},
@@ -166,6 +171,21 @@ function demoBackend() {
       storage(DEMO_KEYS.edits, edits);
     },
     performance: async (id, days) => demoPerformance(id, days),
+    // بلاغات تجريبية ثابتة + ما ترسله أنت من زر البلاغ
+    async reports() {
+      const closed = new Set(storage('dukkan.demoClosedReports') || []);
+      const sample = [
+        { id: 'r1', store_id: 'demo-03', reason: 'closed', details: 'مريت المحل وكان مقفل ومكتوب للإيجار', contact: null, created_at: new Date(Date.now() - 5 * 3600000).toISOString() },
+        { id: 'r2', store_id: 'demo-03', reason: 'wrong_info', details: null, contact: '0551234567', created_at: new Date(Date.now() - 30 * 3600000).toISOString() },
+        { id: 'r3', store_id: 'demo-07', reason: 'broken_link', details: 'رابط المتجر يطلع خطأ 404', contact: null, created_at: new Date(Date.now() - 2 * 86400000).toISOString() },
+      ];
+      return [...(storage(DEMO_KEYS.reports) || []).filter(r => r.status === 'open'), ...sample]
+        .filter(r => !closed.has(String(r.id)))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+    async closeReport(id) {
+      storage('dukkan.demoClosedReports', [...(storage('dukkan.demoClosedReports') || []), String(id)]);
+    },
     async storageStats() {
       const run = storage('dukkan.demoCompact');
       return {

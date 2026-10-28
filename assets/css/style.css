@@ -614,3 +614,28 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 /* ---------- مجالات المتجر ---------- */
 .cat-toggles .toggle span { font-size: 14px; padding: 6px 14px; }
 .cat-toggles .toggle.primary input:checked + span { box-shadow: 3px 3px 0 var(--amber, #e0a03a), 0 0 0 2px var(--lime); }
+
+/* ---------- البلاغ عن متجر ---------- */
+.report-btn { background: transparent; color: var(--muted); }
+.report-btn:hover { background: var(--coral-soft); color: var(--coral); }
+.report-dialog {
+  width: min(460px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 0; border: none;
+  border-radius: var(--radius); background: var(--card); color: var(--ink); box-shadow: var(--shadow);
+}
+.report-dialog::backdrop { background: rgb(28 18 64 / 45%); }
+.report-dialog form { position: relative; padding: 22px 20px 18px; }
+.report-dialog .close {
+  position: absolute; top: 12px; left: 12px; width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: var(--bg); color: var(--ink); font-size: 15px; cursor: pointer;
+}
+.report-dialog h2 { margin: 0 0 4px; font-size: 20px; }
+.report-store { margin: 0 0 14px; color: var(--violet); font-weight: 600; }
+.report-reasons { border: none; padding: 0; margin: 0 0 14px; background: none; box-shadow: none; border-radius: 0; }
+.report-reasons .toggle span { padding: 6px 12px; font-size: 14px; }
+.report-dialog .field { margin-bottom: 12px; }
+.report-dialog .btn-primary { width: 100%; margin-top: 4px; }
+.report-dialog .hint { margin: 10px 0 0; font-size: 13px; text-align: center; }
+.report-done { text-align: center; padding: 18px 0 6px; }
+.report-done .big { font-size: 52px; line-height: 1; }
+.report-done h2 { margin: 10px 0 4px; }
+.report-done p { color: var(--muted); margin: 0 0 18px; }

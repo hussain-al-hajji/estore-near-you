@@ -90,6 +90,34 @@
         <footer class="site-footer in-sheet" data-site-footer></footer>
       </section>
     </main>
+
+    <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportTitle">
+      <form id="reportForm" method="dialog" novalidate>
+        <button type="button" class="close" data-close aria-label="إغلاق">✕</button>
+        <div class="report-body">
+          <h2 id="reportTitle">🚩 بلاغ عن متجر</h2>
+          <p class="report-store" id="reportStore"></p>
+          <fieldset class="report-reasons">
+            <legend class="sr-only">سبب البلاغ</legend>
+            <div class="toggles" id="reportReasons"></div>
+          </fieldset>
+          <label class="field"><span>التفاصيل <small id="reportDetailsHint">(اختياري)</small></span>
+            <textarea name="details" rows="3" maxlength="500" placeholder="مثال: رقم الواتساب ما يرد، أو المحل انتقل لحي ثاني"></textarea></label>
+          <label class="field"><span>للتواصل معك <small>(اختياري: إيميل أو جوال)</small></span>
+            <input name="contact" maxlength="120" dir="ltr" autocomplete="email"></label>
+          <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <p class="error" id="reportError" hidden></p>
+          <button type="submit" class="btn btn-primary">إرسال البلاغ</button>
+          <p class="hint">يوصل البلاغ لإدارة المنصة وتراجعه. ما نشارك بياناتك مع المتجر.</p>
+        </div>
+        <div class="report-done" hidden>
+          <span class="big">🙏</span>
+          <h2>شكرًا لك!</h2>
+          <p>وصل بلاغك للإدارة وبنراجعه في أقرب وقت.</p>
+          <button type="button" class="btn btn-primary" data-close>تمام</button>
+        </div>
+      </form>
+    </dialog>
   </div>
 
   <!-- ==================== أضف متجرك (#add) ==================== -->
