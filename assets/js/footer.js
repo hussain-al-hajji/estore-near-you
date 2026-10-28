@@ -33,10 +33,10 @@ export function renderFooters() {
       el('p', { text: f.about || '' }),
     ]);
     const links = el('nav', { class: 'footer-links', 'aria-label': 'روابط' }, [
+      el('button', { type: 'button', class: 'footer-link-btn', 'data-open-contact': 'general', html: '✉️ راسلنا' }),
       el('a', { href: '#', text: 'تصفح المتاجر' }),
       el('a', { href: '#add', text: 'أضف متجرك' }),
       el('a', { href: '#account', text: 'دخول أصحاب المتاجر' }),
-      el('button', { type: 'button', class: 'footer-link-btn', 'data-open-contact': 'general', text: 'راسلنا' }),
       el('a', { href: '#privacy', text: 'سياسة الخصوصية' }),
       el('a', { href: '#terms', text: 'شروط الاستخدام' }),
     ]);
