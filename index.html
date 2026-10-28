@@ -576,12 +576,20 @@
       <section class="view" id="adminBanners" data-tab="banners" hidden>
         <div class="view-head">
           <div>
-            <h1>الإعلانات</h1>
+            <h1>الإعلانات والتثبيت</h1>
             <p class="muted">بنر مدفوع تحت الخريطة: تختار المناطق اللي يظهر فيها ومدة العرض ورابط التضمين</p>
           </div>
           <button type="button" class="btn btn-primary btn-pop" id="newBannerBtn">+ إعلان جديد</button>
         </div>
         <div class="banner-list" id="bannerList"></div>
+        <div class="view-head sub-head">
+          <div>
+            <h2>📌 تثبيت متجر</h2>
+            <p class="muted">بدل البنر: ثبّت متجرًا موجودًا في أعلى القائمة لمناطق محددة ولفترة محددة</p>
+          </div>
+          <button type="button" class="btn btn-primary" id="newPinBtn">+ تثبيت متجر</button>
+        </div>
+        <div class="banner-list" id="pinList"></div>
         <p class="hint">الإعلان يظهر للزائر بعلامة «إعلان»، ويُحسب لكل إعلان عدد مرات الظهور والنقرات لتعطيها للمعلِن. إذا فيه أكثر من إعلان نشط لنفس المنطقة يتناوبون بحسب وزن الظهور.</p>
       </section>
 
@@ -646,6 +654,50 @@
         <p class="error" id="bannerError" hidden></p>
         <div class="bd-actions">
           <button type="submit" class="btn btn-primary btn-pop" id="saveBannerBtn">💾 حفظ الإعلان</button>
+          <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="banner-dialog" id="pinDialog" aria-labelledby="pinDialogTitle">
+      <form id="pinForm" novalidate>
+        <header class="bd-head">
+          <h2 id="pinDialogTitle">تثبيت متجر</h2>
+          <button type="button" class="close" data-close aria-label="إغلاق">✕</button>
+        </header>
+        <div class="field">
+          <span>المتجر <b>*</b></span>
+          <input type="search" id="pinSearch" placeholder="ابحث باسم المتجر…" aria-label="ابحث عن متجر">
+          <select id="pinStore" size="6" aria-label="المتجر"></select>
+        </div>
+        <div class="field">
+          <span>المناطق التي يظهر فيها التثبيت</span>
+          <div class="toggles" id="pinRegionPicks"></div>
+          <small class="hint-sm">يظهر المتجر في أعلى القائمة لزوار هذه المناطق (حتى لو متجرهم في منطقة ثانية). «كل المناطق» يظهر للجميع.</small>
+        </div>
+        <div class="bd-grid">
+          <label class="field"><span>يبدأ في</span><input type="date" name="starts_on" required dir="ltr"></label>
+          <label class="field"><span>ينتهي في</span><input type="date" name="ends_on" required dir="ltr"></label>
+        </div>
+        <div class="bd-quick" id="pinDurationPicks" role="group" aria-label="مدة سريعة">
+          <span class="muted">المدة:</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="7">أسبوع</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="30">شهر</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="90">3 شهور</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="180">6 شهور</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="365">سنة</button>
+        </div>
+        <div class="bd-grid">
+          <label class="field"><span>وزن الظهور</span>
+            <select name="priority"><option value="1">عادي</option><option value="2">أعلى قليلًا</option><option value="3">مرتفع</option><option value="5">أعلى أولوية</option></select>
+          </label>
+          <label class="field"><span>اسم المعلِن <small>(خاص)</small></span><input name="advertiser" maxlength="80"></label>
+          <label class="field full"><span>ملاحظة <small>(خاصة: المبلغ، رقم الحوالة…)</small></span><input name="note" maxlength="300"></label>
+        </div>
+        <label class="check"><input type="checkbox" name="active" checked><span>التثبيت فعّال</span></label>
+        <p class="error" id="pinError" hidden></p>
+        <div class="bd-actions">
+          <button type="submit" class="btn btn-primary btn-pop" id="savePinBtn">📌 حفظ التثبيت</button>
           <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
         </div>
       </form>

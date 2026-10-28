@@ -715,3 +715,5 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .tag-chip button:hover { background: rgb(0 0 0 / 10%); }
 .tag-box input { flex: 1 1 140px; min-width: 120px; border: none; outline: none; background: none; min-height: 34px; padding: 0 4px; box-shadow: none; }
 .cards.is-loading { opacity: .45; transition: opacity .15s; pointer-events: none; }
+.badge-pin { background: #fff3d6; color: #8a5a00; }
+.card:has(.badge-pin) { box-shadow: 0 0 0 2px #f0c24f, var(--shadow); }

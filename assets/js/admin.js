@@ -37,6 +37,7 @@ const state = {
   payments: [],
   edits: [],
   reports: [],
+  pins: [],
   banners: [],
   bannerTotals: new Map(),
   adminSettings: structuredClone(DEFAULT_ADMIN_SETTINGS),
@@ -1168,10 +1169,13 @@ function bannerPreviewHtml(b) {
 
 async function loadBanners() {
   try {
-    const [banners, totals] = await Promise.all([backend.banners(), backend.bannerTotals().catch(() => [])]);
+    const [banners, totals, pins] = await Promise.all([backend.banners(), backend.bannerTotals().catch(() => []), backend.pins().catch(() => null)]);
+    state.pins = pins || [];
+    state.pinsReady = pins !== null;
     state.banners = banners;
     state.bannerTotals = new Map(totals.map(t => [Number(t.banner_id), t]));
     renderBanners();
+    renderPins();
   } catch (err) {
     $('bannerList').innerHTML = `<div class="status"><span class="big">🛠️</span><strong>الإعلانات تتوفر بعد تشغيل ترحيل قاعدة البيانات 008</strong><span class="muted">${escapeHtml(err.message)}</span></div>`;
   }
@@ -1338,6 +1342,150 @@ $('bannerList').addEventListener('click', async e => {
       if (!confirm(`حذف إعلان «${b.title}» نهائيًا مع إحصائياته؟`)) return;
       await backend.deleteBanner(b.id);
       toast('🗑️ تم حذف الإعلان');
+      await loadBanners();
+    }
+  } catch (err) {
+    toast(`تعذر تنفيذ العملية: ${err.message}`, 'error');
+  }
+});
+
+// ---- تثبيت متجر في أعلى القائمة ----
+
+function renderPins() {
+  if (!state.pinsReady) {
+    $('pinList').innerHTML = '<div class="status"><span class="big">🛠️</span><strong>التثبيت يتوفر بعد تشغيل ترحيل قاعدة البيانات 009</strong></div>';
+    return;
+  }
+  if (!state.pins.length) {
+    $('pinList').innerHTML = '<div class="status"><span class="big">📌</span><strong>ما فيه متاجر مثبّتة</strong><span>اضغط «تثبيت متجر» واختر المتجر والمناطق والمدة.</span></div>';
+    return;
+  }
+  const order = { active: 0, scheduled: 1, paused: 2, ended: 3 };
+  const sorted = [...state.pins].sort((a, b) => order[bannerStatus(a)] - order[bannerStatus(b)] || b.created_at.localeCompare(a.created_at));
+  $('pinList').innerHTML = sorted.map(pin => {
+    const st = bannerStatus(pin);
+    const store = state.stores.find(x => x.id === String(pin.store_id));
+    const left = st === 'active' ? ` · باقي ${formatNumber(daysBetweenKeys(riyadhDay(), pin.ends_on) + 1)} يوم` : '';
+    return `<article class="banner-card" data-id="${pin.id}">
+      <div class="pin-head"><span class="mini-avatar">${escapeHtml([...(store?.name || '؟').trim()][0] || '؟')}</span>
+        <strong>${escapeHtml(store?.name || 'متجر محذوف')}</strong>${store && store.status !== 'approved' ? '<span class="status-pill banner-wait">غير معتمد، لن يظهر</span>' : ''}</div>
+      <div class="banner-meta">
+        <span class="status-pill banner-${BANNER_STATUS[st].cls}">${BANNER_STATUS[st].label}</span>
+        <span>📍 ${pin.regions?.length ? pin.regions.map(escapeHtml).join('، ') : 'كل المناطق'}</span>
+        <span>📅 ${escapeHtml(formatDate(pin.starts_on))} ← ${escapeHtml(formatDate(pin.ends_on))}${left}</span>
+        ${pin.advertiser ? `<span>🏷️ ${escapeHtml(pin.advertiser)}</span>` : ''}
+        ${pin.note ? `<span class="muted">📝 ${escapeHtml(pin.note)}</span>` : ''}
+      </div>
+      <div class="banner-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-pin-action="edit">✏️ تعديل</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-pin-action="toggle">${pin.active ? '⏸ إيقاف' : '▶️ تشغيل'}</button>
+        <button type="button" class="btn btn-ghost btn-sm danger" data-pin-action="delete">🗑️</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+const pinForm = $('pinForm');
+const pinDialog = $('pinDialog');
+let pinEditId = null;
+let pinRegions = new Set();
+
+function renderPinRegionPicks() {
+  $('pinRegionPicks').innerHTML = `<label class="toggle"><input type="checkbox" data-all-regions${pinRegions.size ? '' : ' checked'}><span>🇸🇦 كل المناطق</span></label>`
+    + REGIONS.map(r => `<label class="toggle"><input type="checkbox" value="${escapeHtml(r.name)}"${pinRegions.has(r.name) ? ' checked' : ''}><span>${escapeHtml(r.name)}</span></label>`).join('');
+}
+
+function renderPinStores(selected = '') {
+  const q = $('pinSearch').value.trim().toLowerCase();
+  const list = state.stores.filter(s => s.status === 'approved' && (!q || `${s.name} ${s.city}`.toLowerCase().includes(q)) || s.id === selected)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+  const keep = selected || $('pinStore').value;
+  $('pinStore').innerHTML = list.map(s => `<option value="${escapeHtml(s.id)}"${s.id === keep ? ' selected' : ''}>${escapeHtml(s.name)} · ${escapeHtml(s.city)}</option>`).join('');
+}
+
+function openPinDialog(pin = null) {
+  pinEditId = pin?.id ?? null;
+  const f = pinForm.elements;
+  const today = riyadhDay();
+  $('pinDialogTitle').textContent = pinEditId ? 'تعديل التثبيت' : 'تثبيت متجر';
+  $('pinSearch').value = '';
+  renderPinStores(pin ? String(pin.store_id) : '');
+  f.starts_on.value = pin?.starts_on || today;
+  f.ends_on.value = pin?.ends_on || addDaysKey(today, 30);
+  f.priority.value = String(pin?.priority && [1, 2, 3, 5].includes(pin.priority) ? pin.priority : 1);
+  f.advertiser.value = pin?.advertiser || '';
+  f.note.value = pin?.note || '';
+  f.active.checked = pin ? Boolean(pin.active) : true;
+  pinRegions = new Set(pin?.regions || []);
+  renderPinRegionPicks();
+  $('pinError').hidden = true;
+  pinDialog.showModal();
+}
+
+$('newPinBtn').addEventListener('click', () => openPinDialog());
+$('pinSearch').addEventListener('input', () => renderPinStores());
+pinForm.addEventListener('change', e => {
+  if (!e.target.closest('#pinRegionPicks')) return;
+  if (e.target.hasAttribute('data-all-regions')) pinRegions.clear();
+  else if (e.target.checked) pinRegions.add(e.target.value);
+  else pinRegions.delete(e.target.value);
+  renderPinRegionPicks();
+});
+$('pinDurationPicks').addEventListener('click', e => {
+  const days = Number(e.target.closest('[data-days]')?.dataset.days);
+  if (days) pinForm.elements.ends_on.value = addDaysKey(pinForm.elements.starts_on.value || riyadhDay(), days - 1);
+});
+pinDialog.addEventListener('click', e => {
+  if (e.target === pinDialog || e.target.closest('[data-close]')) pinDialog.close();
+});
+
+pinForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = pinForm.elements;
+  const err = msg => {
+    $('pinError').textContent = msg;
+    $('pinError').hidden = !msg;
+  };
+  err('');
+  const text = name => f[name].value.trim() || null;
+  const pin = {
+    store_id: $('pinStore').value, regions: [...pinRegions], starts_on: f.starts_on.value, ends_on: f.ends_on.value,
+    priority: Number(f.priority.value), advertiser: text('advertiser'), note: text('note'), active: f.active.checked,
+  };
+  if (!pin.store_id) return err('اختر المتجر من القائمة.');
+  if (!pin.starts_on || !pin.ends_on) return err('حدد تاريخ البداية والنهاية.');
+  if (pin.ends_on < pin.starts_on) return err('تاريخ النهاية قبل تاريخ البداية.');
+  const btn = $('savePinBtn');
+  btn.disabled = true;
+  try {
+    await backend.savePin(pinEditId ? { id: pinEditId, ...pin } : pin);
+    pinDialog.close();
+    toast('📌 تم حفظ التثبيت');
+    await loadBanners();
+  } catch (error) {
+    err(`تعذر الحفظ: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+  return undefined;
+});
+
+$('pinList').addEventListener('click', async e => {
+  const action = e.target.closest('[data-pin-action]')?.dataset.pinAction;
+  const card = e.target.closest('.banner-card');
+  const pin = action && card && state.pins.find(x => x.id === Number(card.dataset.id));
+  if (!pin) return;
+  try {
+    if (action === 'edit') openPinDialog(pin);
+    else if (action === 'toggle') {
+      const { id, created_at: _c, ...fields } = pin;
+      await backend.savePin({ id, ...fields, active: !pin.active });
+      toast(pin.active ? '⏸ تم إيقاف التثبيت' : '▶️ تم تشغيل التثبيت');
+      await loadBanners();
+    } else if (action === 'delete') {
+      if (!confirm('حذف هذا التثبيت؟ المتجر نفسه ما يتأثر.')) return;
+      await backend.deletePin(pin.id);
+      toast('🗑️ تم حذف التثبيت');
       await loadBanners();
     }
   } catch (err) {

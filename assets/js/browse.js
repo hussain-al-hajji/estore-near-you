@@ -1,6 +1,6 @@
 import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS } from './constants.js';
 import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
-import { searchStores, refreshStores, submitReport, getBanner, bannerClick, isDemo, logEvent, logImpressions } from './api.js';
+import { searchStores, refreshStores, submitReport, getBanner, bannerClick, getPinnedStores, isDemo, logEvent, logImpressions } from './api.js';
 import { parseIntent } from './intent.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
@@ -19,7 +19,7 @@ const els = {
 // النتائج تجي من السيرفر صفحة صفحة (30 متجر)، مع عدد المتاجر في كل مدينة للخريطة
 const state = {
   results: [], total: 0, cities: [], pageSize: 30, maxOffset: 60, error: null, relaxed: false,
-  intent: null, intentFor: '', dismissed: new Set(), eff: { region: '', city: '' }, shared: null,
+  intent: null, intentFor: '', dismissed: new Set(), eff: { region: '', city: '' }, shared: null, pinned: [],
   userLoc: null, selectedId: null, category: '', gate: true, geoDenied: false,
 };
 const markers = new Map();
@@ -100,7 +100,14 @@ function hasFilters() {
 // المتجر قد يكون له أكثر من موقع: نعرض المواقع المطابقة للمنطقة/المدينة، والمسافة تُقاس لأقربها
 function rows() {
   const { region, city } = state.eff;
+  // المتاجر المثبّتة تظهر أولًا عند التصفح بدون كلمات بحث، وتحترم فلتر المجال والنوع
+  const it = state.intent;
+  const pins = state.shared || it?.terms?.length ? [] : state.pinned
+    .filter(s => (!state.category || s.cats.includes(state.category)) && (!(it?.entity || els.entity.value) || s.entity_type === (it?.entity || els.entity.value)))
+    .map(s => ({ ...s, pinned: true, shownLocs: s.locs }));
+  const pinnedIds = new Set(pins.map(s => s.id));
   let list = state.results
+    .filter(s => !pinnedIds.has(s.id))
     .map(s => ({ ...s, shownLocs: s.locs.filter(l => (!region || l.region === region) && (!city || l.city === city)) }))
     .filter(s => s.shownLocs.length);
   if (state.userLoc) {
@@ -110,8 +117,13 @@ function rows() {
       return { ...s, km: dists[nearest], nearest };
     });
     list.sort((a, b) => a.km - b.km);
+    for (const s of pins) {
+      const dists = s.shownLocs.map(l => haversineKm(state.userLoc.lat, state.userLoc.lng, l.lat, l.lng));
+      s.nearest = dists.indexOf(Math.min(...dists));
+      s.km = dists[s.nearest];
+    }
   }
-  return list;
+  return [...pins, ...list];
 }
 
 // ---- البحث من السيرفر ----
@@ -225,6 +237,7 @@ function cardHtml(s) {
           <h2>${escapeHtml(s.name)}</h2>
           <p class="meta">📍 ${escapeHtml(mainLoc(s).city)}${mainLoc(s).district ? ` · ${escapeHtml(mainLoc(s).district)}` : ''}${s.locs.length > 1 ? ` <span class="more-locs">+${s.locs.length - 1} ${s.locs.length === 2 ? 'موقع آخر' : 'مواقع أخرى'}</span>` : ''}</p>
         </div>
+        ${s.pinned ? '<span class="badge badge-pin">📌 مثبّت</span>' : ''}
         ${s.km != null ? `<span class="badge badge-distance">${formatDistance(s.km)}</span>` : ''}
         ${s.pending ? '<span class="badge badge-pending">قيد المراجعة</span>' : ''}
       </div>
@@ -442,8 +455,14 @@ async function refreshBanner() {
   const region = state.eff.region || (state.userLoc ? nearestCity(state.userLoc.lat, state.userLoc.lng)?.region : '') || '';
   if (region === bannerRegion) return;
   bannerRegion = region;
-  const banner = await getBanner(region);
-  if (region === bannerRegion) renderBanner(banner);
+  const [banner, pinned] = await Promise.all([getBanner(region), getPinnedStores(region)]);
+  if (region !== bannerRegion) return;
+  renderBanner(banner);
+  const next = pinned.map(s => ({ ...s, id: String(s.id), locs: storeLocations(s), cats: storeCategories(s) }));
+  if (next.map(s => s.id).join() !== state.pinned.map(s => s.id).join()) {
+    state.pinned = next;
+    render();
+  }
 }
 
 els.banner.addEventListener('click', e => {

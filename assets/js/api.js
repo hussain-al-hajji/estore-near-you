@@ -18,6 +18,7 @@ const DEMO = {
   impressions: 'dukkan.demoImpressions',
   reports: 'dukkan.demoReports',
   banners: 'dukkan.demoBanners',
+  pins: 'dukkan.demoPins',
 };
 
 export const isDemo = !LIVE;
@@ -208,6 +209,35 @@ export function bannerClick(id) {
   const stats = storage(`${DEMO.banners}Stats`) || {};
   (stats[id] ||= { impressions: 0, clicks: 0 }).clicks += 1;
   storage(`${DEMO.banners}Stats`, stats);
+}
+
+// ---- المتاجر المثبّتة في أعلى القائمة (يحددها المشرف بالمنطقة والمدة) ----
+export function demoPinList() {
+  let list = storage(DEMO.pins);
+  if (!list) {
+    list = [{
+      id: 1, store_id: 'demo-05', regions: [], starts_on: riyadhDay(), ends_on: riyadhDay(Date.now() + 90 * 86400000),
+      active: true, priority: 1, advertiser: 'مثال', note: null, created_at: new Date().toISOString(),
+    }];
+    storage(DEMO.pins, list);
+  }
+  return list;
+}
+
+export async function getPinnedStores(region) {
+  if (LIVE) {
+    try {
+      const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/get_pinned_stores`, {
+        method: 'POST', headers: headers(), body: JSON.stringify({ p_region: region || null }),
+      });
+      return res.ok ? await res.json() : [];
+    } catch { return []; }
+  }
+  const today = riyadhDay();
+  const ids = new Set(demoPinList()
+    .filter(p => p.active !== false && p.starts_on <= today && p.ends_on >= today && (!p.regions?.length || p.regions.includes(region)))
+    .map(p => p.store_id));
+  return (await demoAllStores()).filter(s => s.status === 'approved' && ids.has(s.id)).slice(0, 3);
 }
 
 // يدخل بحساب صاحب المتجر أو ينشئه، حتى يرتبط المتجر بحسابه

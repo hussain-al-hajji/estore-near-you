@@ -1,4 +1,4 @@
-import { isDemo, demoAllStores, DEMO_KEYS, demoPerformance, demoApplyEdit, demoBannerList } from './api.js';
+import { isDemo, demoAllStores, DEMO_KEYS, demoPerformance, demoApplyEdit, demoBannerList, demoPinList } from './api.js';
 import { getClient, authErrorMessage } from './supabase-client.js';
 import { storage, dayKey } from './utils.js';
 import { SETTINGS } from './settings.js';
@@ -52,6 +52,12 @@ function liveBackend(sb) {
     closeReport: async (id, status) => {
       check(await sb.from('store_reports').update({ status, resolved_at: new Date().toISOString() }).eq('id', id));
     },
+    pins: async () => check(await sb.from('pinned_stores').select('*').order('created_at', { ascending: false })),
+    async savePin({ id, ...fields }) {
+      if (id) check(await sb.from('pinned_stores').update(fields).eq('id', id));
+      else check(await sb.from('pinned_stores').insert(fields));
+    },
+    deletePin: async id => { check(await sb.from('pinned_stores').delete().eq('id', id)); },
     banners: async () => check(await sb.from('banners').select('*').order('created_at', { ascending: false })),
     bannerTotals: async () => check(await sb.rpc('admin_banner_totals')),
     async saveBanner({ id, ...fields }) {
@@ -178,6 +184,16 @@ function demoBackend() {
       storage(DEMO_KEYS.edits, edits);
     },
     performance: async (id, days) => demoPerformance(id, days),
+    pins: async () => [...demoPinList()].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    async savePin({ id, ...fields }) {
+      const list = demoPinList();
+      if (id) Object.assign(list.find(p => p.id === id), fields);
+      else list.push({ id: Date.now(), created_at: new Date().toISOString(), ...fields });
+      storage(DEMO_KEYS.pins, list);
+    },
+    async deletePin(id) {
+      storage(DEMO_KEYS.pins, demoPinList().filter(p => p.id !== id));
+    },
     banners: async () => [...demoBannerList()].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     bannerTotals: async () => Object.entries(storage(`${DEMO_KEYS.banners}Stats`) || {})
       .map(([id, s]) => ({ banner_id: Number(id), impressions: s.impressions, clicks: s.clicks })),
