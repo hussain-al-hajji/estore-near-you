@@ -48,6 +48,8 @@ export function renderFooters() {
       el('a', { href: '#', text: 'تصفح المتاجر' }),
       el('a', { href: '#add', text: 'أضف متجرك' }),
       el('a', { href: '#account', text: 'دخول أصحاب المتاجر' }),
+      el('a', { href: '#privacy', text: 'سياسة الخصوصية' }),
+      el('a', { href: '#terms', text: 'شروط الاستخدام' }),
     ]);
     const disclaimer = SETTINGS.legal.disclaimer
       ? el('p', { class: 'footer-disclaimer' }, [el('strong', { text: '⚖️ إخلاء مسؤولية: ' }), SETTINGS.legal.disclaimer])

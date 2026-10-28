@@ -14,6 +14,11 @@ const VIEWS = {
     theme: '#5b2ee6',
     load: () => import('./add-store.js'),
   },
+  legal: {
+    title: 'سياسة الخصوصية وشروط الاستخدام | دكان الحي',
+    theme: '#5b2ee6',
+    load: () => import('./legal.js'),
+  },
   account: {
     title: 'متجري | دكان الحي',
     theme: '#5b2ee6',
@@ -31,6 +36,7 @@ window.dukkanRecovery = /type=recovery/.test(location.hash);
 
 function viewFor(hash) {
   if (hash === '#add' || hash === '#edit') return 'add';
+  if (hash === '#privacy' || hash === '#terms') return 'legal';
   if (hash === '#account' || /access_token=|type=recovery/.test(hash)) return 'account';
   if (hash === '#admin' || hash.startsWith('#admin/')) return 'admin';
   return 'browse';
@@ -42,7 +48,7 @@ async function route() {
   const name = viewFor(location.hash);
   const view = VIEWS[name];
   // التنقل بين #add و#edit يغيّر وضع النموذج، أما تبويبات اللوحة فيعالجها admin.js
-  const key = name === 'add' ? location.hash : name;
+  const key = name === 'add' || name === 'legal' ? location.hash : name;
   const changed = key !== current;
   current = key;
 

@@ -1,23 +1,25 @@
 import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS } from './constants.js';
 import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
-import { searchStores, refreshStores, submitReport, isDemo, logEvent, logImpressions } from './api.js';
+import { searchStores, refreshStores, submitReport, getBanner, bannerClick, isDemo, logEvent, logImpressions } from './api.js';
+import { parseIntent } from './intent.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
-  escapeHtml, safeUrl, haversineKm, formatDistance, storesCountLabel, storage, storeLocations, nearestCity, storeCategories,
+  escapeHtml, safeUrl, safeImage, haversineKm, formatDistance, storesCountLabel, storage, storeLocations, nearestCity, storeCategories,
 } from './utils.js';
 
 const $ = id => document.getElementById(id);
 const els = {
   q: $('q'), region: $('region'), city: $('city'), entity: $('entity'), chips: $('categoryChips'),
   nearMe: $('nearMe'), radius: $('radius'), list: $('list'), count: $('count'),
-  subtitle: $('subtitle'), status: $('status'), geoNote: $('geoNote'),
+  subtitle: $('subtitle'), status: $('status'), geoNote: $('geoNote'), intent: $('intentNote'), banner: $('adBanner'),
 };
 
 // gate: قبل السماح بالموقع أو اختيار مدينة/فلتر، نعرض طلب تفعيل الموقع بدل القائمة
 // النتائج تجي من السيرفر صفحة صفحة (30 متجر)، مع عدد المتاجر في كل مدينة للخريطة
 const state = {
-  results: [], total: 0, cities: [], pageSize: 30, maxOffset: 60, error: null,
+  results: [], total: 0, cities: [], pageSize: 30, maxOffset: 60, error: null, relaxed: false,
+  intent: null, intentFor: '', dismissed: new Set(), eff: { region: '', city: '' }, shared: null,
   userLoc: null, selectedId: null, category: '', gate: true, geoDenied: false,
 };
 const markers = new Map();
@@ -41,6 +43,7 @@ const ICONS = {
   tiktok: '<svg viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5M14 3c.6 2.6 2.6 4.6 5 4.8"/></svg>',
   snapchat: '<svg viewBox="0 0 24 24"><path d="M12 3.5c3 0 5 2.2 5 5.2v2.1l1.8-.5c.6.6.3 1.3-.4 1.6l-1.6.7c.6 1.8 1.9 3.1 3.6 3.6-.3.9-1.4 1.1-2.4 1.2l-.4 1.3-1.6-.2c-1 .8-2.4 1.8-4 1.8s-3-1-4-1.8l-1.6.2-.4-1.3c-1-.1-2.1-.3-2.4-1.2 1.7-.5 3-1.8 3.6-3.6l-1.6-.7c-.7-.3-1-1-.4-1.6l1.8.5V8.7c0-3 2-5.2 5-5.2z"/></svg>',
   flag: '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
+  share: '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/></svg>',
   whatsapp: '<svg viewBox="0 0 24 24"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9.5c.5 2.2 2.3 4 4.5 4.5"/></svg>',
 };
 const AVATAR_THEMES = ['violet', 'coral', 'lime', 'sky', 'pink'];
@@ -63,12 +66,30 @@ function updateCities() {
   if (region) fillSelect(els.city, region.cities.map(c => c.name));
 }
 
+// نفهم جملة البحث (مدينة، توصيل، نوع النشاط، مرادفات…) ونحوّلها لفلاتر وكلمات يطابقها السيرفر
+function understand() {
+  const q = els.q.value.trim();
+  if (q !== state.intentFor) {
+    state.intentFor = q;
+    state.dismissed = new Set();
+  }
+  return parseIntent(q, { categories: CATEGORIES, dismissed: state.dismissed });
+}
+
 function searchParams() {
+  if (state.shared) return { id: state.shared };
+  const it = understand();
+  state.intent = it;
+  // ما كتبه الزائر في البحث يتقدم على القوائم المنسدلة
+  const region = it.region || els.region.value;
+  const city = it.city || (it.region ? '' : els.city.value);
+  state.eff = { region, city };
   return {
     lat: state.userLoc?.lat, lng: state.userLoc?.lng,
     radius: state.userLoc ? Number(els.radius.value) || 0 : 0,
-    region: els.region.value, city: els.city.value, category: state.category,
-    entity: els.entity.value, q: els.q.value.trim(),
+    region, city, category: state.category,
+    entity: it.entity || els.entity.value, delivery: it.delivery,
+    terms: it.terms, boost: it.boost, q: els.q.value.trim(),
   };
 }
 
@@ -78,8 +99,7 @@ function hasFilters() {
 
 // المتجر قد يكون له أكثر من موقع: نعرض المواقع المطابقة للمنطقة/المدينة، والمسافة تُقاس لأقربها
 function rows() {
-  const region = els.region.value;
-  const city = els.city.value;
+  const { region, city } = state.eff;
   let list = state.results
     .map(s => ({ ...s, shownLocs: s.locs.filter(l => (!region || l.region === region) && (!city || l.city === city)) }))
     .filter(s => s.shownLocs.length);
@@ -107,20 +127,39 @@ async function search({ fit = false, append = false } = {}) {
     state.results = append ? [...state.results, ...page.filter(r => !have.has(r.id))] : page;
     Object.assign(state, {
       total: res.total, cities: res.cities || [], pageSize: res.page_size || 30, maxOffset: res.max_offset ?? 60, error: null,
+      relaxed: Boolean(res.relaxed),
     });
   } catch (err) {
     if (seq !== searchSeq) return false;
     state.error = err.message;
     if (!append) Object.assign(state, { results: [], total: 0, cities: [] });
   }
+  if (state.shared && !state.error && !state.results.length) {
+    leaveShared();
+    toast('هذا المتجر غير متاح حاليًا، تصفح المتاجر الأخرى');
+    return search({ fit: true });
+  }
   render({ fit: fit && !append });
+  if (state.shared && state.results[0]) select(state.results[0].id);
   return true;
 }
 
 // يجمع التغييرات السريعة (الكتابة، تحديثات الموقع) في طلب واحد. يرجع false إذا جاء بحث أحدث منه
 let searchTimer = null;
 let pendingSearch = null;
+// إشارة فورية للزائر أن البحث بدأ (قبل وصول النتائج)
+function showLoading() {
+  if (state.gate && !state.userLoc) return;
+  els.count.textContent = 'جارٍ البحث…';
+  els.list.classList.add('is-loading');
+  if (els.status.classList.contains('gate')) {
+    els.status.hidden = true;
+    els.status.classList.remove('gate');
+  }
+}
+
 function scheduleSearch({ fit = false } = {}, delay = 0) {
+  showLoading();
   clearTimeout(searchTimer);
   const merged = fit || Boolean(pendingSearch?.fit);
   pendingSearch?.resolve(false);
@@ -168,7 +207,7 @@ function avatarTheme(name) {
 }
 
 function logoHtml(s) {
-  const src = s.logo_url && safeUrl(s.logo_url);
+  const src = s.logo_url && safeImage(s.logo_url);
   const initial = escapeHtml([...s.name.trim()][0] || '؟');
   return src
     ? `<span class="avatar"><img src="${escapeHtml(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-initial="${initial}"></span>`
@@ -200,6 +239,7 @@ function cardHtml(s) {
         ${main ? `<a class="btn btn-primary btn-sm" href="${escapeHtml(main.href)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">${main.label}</a>` : ''}
         <button type="button" class="btn btn-ghost btn-sm" data-action="locate">على الخريطة</button>
         <span class="social">${socialLinks(s)}</span>
+        <button type="button" class="icon-btn share-btn" data-action="share" title="شارك المتجر" aria-label="شارك ${escapeHtml(s.name)}">${ICONS.share}</button>
         <button type="button" class="icon-btn report-btn" data-action="report" title="بلّغ عن المتجر" aria-label="بلّغ عن ${escapeHtml(s.name)}">${ICONS.flag}</button>
       </div>
     </li>`;
@@ -227,6 +267,53 @@ function gateHtml() {
 
 function gateOff() {
   state.gate = false;
+  leaveShared();
+}
+
+// ---- رابط مشاركة متجر (#store=…) ----
+function applyShared() {
+  const m = /^#store=([\w-]{1,64})$/.exec(location.hash);
+  state.shared = m ? m[1] : null;
+  if (state.shared) state.gate = false;
+}
+
+function leaveShared() {
+  if (!state.shared) return;
+  state.shared = null;
+  if (location.hash.startsWith('#store=')) history.replaceState(null, '', location.pathname + location.search);
+}
+
+function toast(message) {
+  let el = document.getElementById('browseToast');
+  if (!el) {
+    el = Object.assign(document.createElement('div'), { id: 'browseToast', className: 'toast toast-ok', hidden: true });
+    el.setAttribute('role', 'status');
+    document.body.append(el);
+  }
+  el.textContent = message;
+  el.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { el.hidden = true; }, 3200);
+}
+
+async function shareStore(id) {
+  const s = state.results.find(x => x.id === id);
+  if (!s) return;
+  const url = `${location.origin}${location.pathname}#store=${encodeURIComponent(id)}`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: s.name, text: `${s.name} على دكان الحي`, url });
+      return;
+    }
+  } catch (err) {
+    if (err?.name === 'AbortError') return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('🔗 تم نسخ رابط المتجر، الصقه وشاركه');
+  } catch {
+    prompt('انسخ رابط المتجر:', url);
+  }
 }
 
 // ---- إحصائيات ظهور المتاجر لأصحابها ----
@@ -235,9 +322,9 @@ let impressionTimer = null;
 const loggedImpressions = new Set();
 
 function searcherCity() {
-  if (els.city.value) return els.city.value;
+  if (state.eff.city) return state.eff.city;
   if (state.userLoc) return nearestCity(state.userLoc.lat, state.userLoc.lng)?.city || '';
-  return els.region.value;
+  return state.eff.region;
 }
 
 function scheduleImpressions(rows) {
@@ -296,14 +383,85 @@ function pickCity(region, city) {
   els.city.dispatchEvent(new Event('change'));
 }
 
+// ما فهمناه من البحث (قابل للإلغاء)، ورسالة إذا عرضنا نتائج قريبة بدل المطابقة الكاملة
+function renderIntent() {
+  const it = state.intent;
+  const parts = [];
+  if (state.shared) {
+    parts.push('<span class="intent-label">🔗 متجر شاركه معك أحدهم</span><button type="button" class="link-btn" data-intent="leave-shared">تصفح المتاجر القريبة ←</button>');
+  } else if (it?.interpreted) {
+    parts.push('<span class="intent-label">🧠 فهمت من بحثك:</span>');
+    for (const c of it.chips) {
+      const needsLoc = c.key === 'near' && !state.userLoc;
+      parts.push(`<span class="intent-chip${c.info ? ' info' : ''}"><button type="button" data-intent="${escapeHtml(c.key)}" data-kind="${needsLoc ? 'locate' : 'info'}">${escapeHtml(c.label)}${needsLoc ? ' · فعّل الموقع' : ''}</button><button type="button" data-dismiss="${escapeHtml(c.key)}" aria-label="إلغاء: ${escapeHtml(c.label)}">✕</button></span>`);
+    }
+  }
+  if (state.relaxed && !state.shared) parts.push('<span class="intent-relax">ما لقينا متجر يطابق كل كلماتك، فعرضنا الأقرب لها أولًا.</span>');
+  els.intent.innerHTML = parts.join('');
+  els.intent.hidden = !parts.length;
+}
+
+els.intent.addEventListener('click', e => {
+  if (e.target.closest('[data-intent="leave-shared"]')) {
+    leaveShared();
+    state.gate = false;
+    scheduleSearch({ fit: true });
+    return;
+  }
+  const dismiss = e.target.closest('[data-dismiss]');
+  if (dismiss) {
+    state.dismissed.add(dismiss.dataset.dismiss);
+    scheduleSearch({ fit: true });
+    return;
+  }
+  if (e.target.closest('[data-kind="locate"]')) els.nearMe.click();
+});
+
+// ---- البنر الإعلاني تحت الخريطة (يختاره المشرف حسب المنطقة والمدة) ----
+let bannerRegion = null;
+
+function renderBanner(b) {
+  if (!b) {
+    els.banner.hidden = true;
+    els.banner.innerHTML = '';
+    return;
+  }
+  const link = safeUrl(b.link_url);
+  const image = b.image_url && safeUrl(b.image_url);
+  const inner = `${image ? `<img src="${escapeHtml(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
+    <span class="ad-text"><small class="ad-tag">إعلان</small><strong>${escapeHtml(b.title)}</strong>${b.body ? `<span>${escapeHtml(b.body)}</span>` : ''}</span>
+    ${link && b.button_label ? `<span class="ad-btn">${escapeHtml(b.button_label)}</span>` : ''}`;
+  els.banner.className = `ad-banner ad-${['violet', 'coral', 'lime', 'sky', 'ink'].includes(b.theme) ? b.theme : 'violet'}`;
+  els.banner.innerHTML = link
+    ? `<a href="${escapeHtml(link)}" target="_blank" rel="sponsored noopener" data-banner="${escapeHtml(String(b.id))}">${inner}</a>`
+    : `<div class="ad-static">${inner}</div>`;
+  els.banner.hidden = false;
+}
+
+async function refreshBanner() {
+  const region = state.eff.region || (state.userLoc ? nearestCity(state.userLoc.lat, state.userLoc.lng)?.region : '') || '';
+  if (region === bannerRegion) return;
+  bannerRegion = region;
+  const banner = await getBanner(region);
+  if (region === bannerRegion) renderBanner(banner);
+}
+
+els.banner.addEventListener('click', e => {
+  const link = e.target.closest('[data-banner]');
+  if (link) bannerClick(link.dataset.banner);
+});
+
 function render({ fit = false } = {}) {
+  els.list.classList.remove('is-loading');
   const gated = state.gate && !state.userLoc;
   const list = gated ? [] : rows();
   if (!gated) scheduleImpressions(list);
   els.count.textContent = state.error && !list.length ? 'تعذر التحميل'
     : gated ? '📍 المتاجر القريبة منك' : storesCountLabel(state.total);
   els.subtitle.textContent = gated ? 'فعّل موقعك، أو اختر منطقتك ومدينتك'
-    : state.userLoc ? 'مرتبة من الأقرب لك' : (els.city.value || els.region.value || 'في كل المملكة');
+    : state.shared ? 'متجر شاركه معك أحدهم' : state.userLoc ? 'مرتبة من الأقرب لك' : (state.eff.city || state.eff.region || 'في كل المملكة');
+  renderIntent();
+  refreshBanner();
   els.list.innerHTML = list.map(cardHtml).join('') + moreHtml(list);
   els.list.querySelectorAll('.avatar img').forEach(img => img.addEventListener('error', () => {
     const avatar = img.parentElement;
@@ -365,6 +523,10 @@ function select(id, { fromMap = false } = {}) {
 
 els.list.addEventListener('click', e => {
   if (e.target.closest('a')) return;
+  if (e.target.closest('[data-action="share"]')) {
+    shareStore(e.target.closest('.card').dataset.id);
+    return;
+  }
   if (e.target.closest('[data-action="report"]')) {
     openReport(e.target.closest('.card').dataset.id);
     return;
@@ -604,9 +766,17 @@ try {
   logEvent('visit');
 }
 
+window.addEventListener('hashchange', () => {
+  if (document.body.dataset.view !== 'browse') return;
+  const before = state.shared;
+  applyShared();
+  if (state.shared !== before) scheduleSearch({ fit: true });
+});
+
 async function init() {
+  applyShared();
   const savedRegion = storage('dukkan.region');
-  if (savedRegion && REGIONS.some(r => r.name === savedRegion)) {
+  if (!state.shared && savedRegion && REGIONS.some(r => r.name === savedRegion)) {
     gateOff();
     els.region.value = savedRegion;
     updateCities();
@@ -644,5 +814,6 @@ export function onShow() {
   }
   map.invalidateSize();
   refreshStores();
-  scheduleSearch();
+  applyShared();
+  scheduleSearch({ fit: Boolean(state.shared) });
 }

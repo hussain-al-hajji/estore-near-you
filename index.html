@@ -51,7 +51,7 @@
       <div class="filter-row">
         <label class="search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input type="search" id="q" placeholder="وش تدوّر عليه؟ قهوة، عطور، هدايا…" aria-label="بحث">
+          <input type="search" id="q" placeholder="جرّب: بخور فاخر بالقطيف يوصل، أو قهوة مختصة قريبة مني…" aria-label="بحث">
         </label>
         <div class="filter-scroll">
           <select id="region" aria-label="المنطقة"><option value="">🗺️ كل المناطق</option></select>
@@ -71,6 +71,7 @@
           </select>
         </div>
       </div>
+      <div class="intent-note" id="intentNote" aria-live="polite" hidden></div>
       <div class="chips" id="categoryChips" role="group" aria-label="التصنيفات"></div>
     </section>
 
@@ -85,6 +86,7 @@
             <p class="subtitle" id="subtitle"></p>
           </div>
         </div>
+        <aside class="ad-banner" id="adBanner" aria-label="إعلان" hidden></aside>
         <div class="status" id="status" hidden></div>
         <ul class="cards" id="list"></ul>
         <footer class="site-footer in-sheet" data-site-footer></footer>
@@ -118,6 +120,24 @@
         </div>
       </form>
     </dialog>
+  </div>
+
+  <!-- ==================== سياسة الخصوصية وشروط الاستخدام (#privacy، #terms) ==================== -->
+  <div class="screen screen-legal" id="screen-legal" hidden>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="دكان الحي، الصفحة الرئيسية">
+        <img src="assets/img/logo.svg" alt="دكان الحي" height="40">
+      </a>
+      <a class="btn btn-ghost btn-account" href="#">← تصفح المتاجر</a>
+    </header>
+    <main class="legal">
+      <nav class="legal-tabs" aria-label="الصفحات القانونية">
+        <a href="#privacy" data-doc="privacy">🔒 سياسة الخصوصية</a>
+        <a href="#terms" data-doc="terms">📜 شروط الاستخدام</a>
+      </nav>
+      <article class="legal-doc" id="legalDoc"></article>
+    </main>
+    <footer class="site-footer" data-site-footer></footer>
   </div>
 
   <!-- ==================== أضف متجرك (#add) ==================== -->
@@ -173,13 +193,30 @@
               <span>رابط المتجر <small>(إن وجد)</small></span>
               <input name="url" inputmode="url" placeholder="mystore.com أو رابط سلة/زد" dir="ltr">
             </label>
-            <label class="field" data-field="logo_url">
-              <span>رابط الشعار <small class="opt">(اختياري)</small></span>
-              <input name="logo_url" inputmode="url" placeholder="https://…/logo.png" dir="ltr">
-            </label>
+            <div class="field" data-field="logo_url" id="logoField">
+              <span>شعار المتجر <small class="opt">(اختياري)</small></span>
+              <div class="logo-pick">
+                <span class="logo-preview" id="logoPreview" aria-hidden="true">🛍️</span>
+                <div class="logo-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="logoUploadBtn">📷 ارفع صورة الشعار</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="logoRemoveBtn" hidden>حذف</button>
+                  <input type="file" id="logoFile" accept="image/*" hidden>
+                </div>
+              </div>
+              <input name="logo_url" inputmode="url" placeholder="أو الصق رابط الشعار https://…/logo.png" dir="ltr">
+              <small class="hint-sm" id="logoNote">تُصغَّر الصورة تلقائيًا في جوالك قبل الرفع.</small>
+            </div>
             <div class="field full" id="categoryField">
               <span>مجالات المتجر <b>*</b> <small>اختر من 1 إلى 5، وأول اختيار هو مجالك الرئيسي ⭐</small></span>
               <div class="toggles cat-toggles" id="categoryToggles" role="group" aria-label="مجالات المتجر"></div>
+            </div>
+            <div class="field full" id="tagsField">
+              <span>كلمات تساعد الناس يلقونك <small class="opt">(وسوم، اختياري)</small></span>
+              <div class="tag-box" id="tagBox">
+                <span class="tag-list" id="tagList"></span>
+                <input id="tagInput" maxlength="30" placeholder="مثال: بخور، عود، دهن عود" autocomplete="off" aria-label="أضف وسمًا">
+              </div>
+              <small class="hint-sm">اكتب الكلمة ثم Enter أو فاصلة، حتى 10 كلمات. لو تبيع عطور مثلًا اكتب: بخور، عود، مسك، فيطلع متجرك لمن يبحث عنها.</small>
             </div>
             <label class="field full" data-field="description">
               <span>نبذة عن المتجر <small class="opt">(اختياري)</small></span>
@@ -324,6 +361,7 @@
           <input type="checkbox" name="agree" required>
           <span id="termsText"></span>
         </label>
+        <p class="terms-links">بإرسالك الطلب توافق على <a href="#terms" target="_blank" rel="noopener">شروط الاستخدام</a> و<a href="#privacy" target="_blank" rel="noopener">سياسة الخصوصية</a>.</p>
 
         <p class="error" id="formError" hidden></p>
         <button type="submit" class="btn btn-primary btn-lg btn-pop" id="submitBtn">أرسل طلبك 🚀</button>
@@ -424,6 +462,7 @@
         <nav class="tabs" role="tablist">
           <a href="#admin/overview" class="tab" data-tab="overview" role="tab">📊 نظرة عامة</a>
           <a href="#admin/stores" class="tab" data-tab="stores" role="tab">🏪 المتاجر <span class="count-badge" id="pendingBadge" hidden></span></a>
+          <a href="#admin/banners" class="tab" data-tab="banners" role="tab">📣 الإعلانات</a>
           <a href="#admin/settings" class="tab" data-tab="settings" role="tab">⚙️ الإعدادات</a>
         </nav>
         <div class="admin-user">
@@ -533,6 +572,19 @@
         </div>
       </section>
 
+      <!-- الإعلانات -->
+      <section class="view" id="adminBanners" data-tab="banners" hidden>
+        <div class="view-head">
+          <div>
+            <h1>الإعلانات</h1>
+            <p class="muted">بنر مدفوع تحت الخريطة: تختار المناطق اللي يظهر فيها ومدة العرض ورابط التضمين</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-pop" id="newBannerBtn">+ إعلان جديد</button>
+        </div>
+        <div class="banner-list" id="bannerList"></div>
+        <p class="hint">الإعلان يظهر للزائر بعلامة «إعلان»، ويُحسب لكل إعلان عدد مرات الظهور والنقرات لتعطيها للمعلِن. إذا فيه أكثر من إعلان نشط لنفس المنطقة يتناوبون بحسب وزن الظهور.</p>
+      </section>
+
       <!-- الإعدادات -->
       <section class="view" id="adminSettings" data-tab="settings" hidden>
         <div class="view-head">
@@ -547,6 +599,57 @@
         <form id="settingsForm" class="settings-form" novalidate></form>
       </section>
     </div>
+
+    <dialog class="banner-dialog" id="bannerDialog" aria-labelledby="bannerDialogTitle">
+      <form id="bannerForm" novalidate>
+        <header class="bd-head">
+          <h2 id="bannerDialogTitle">إعلان جديد</h2>
+          <button type="button" class="close" data-close aria-label="إغلاق">✕</button>
+        </header>
+        <div class="bd-preview"><aside class="ad-banner" id="bannerPreview"></aside></div>
+        <div class="bd-grid">
+          <label class="field"><span>العنوان <b>*</b></span><input name="title" required maxlength="80" placeholder="مثال: خصم 20% على القهوة المختصة"></label>
+          <label class="field"><span>نص قصير <small>(اختياري)</small></span><input name="body" maxlength="160"></label>
+          <label class="field"><span>رابط التضمين <small>(يفتح عند الضغط)</small></span><input name="link_url" inputmode="url" dir="ltr" placeholder="https://…"></label>
+          <label class="field"><span>نص الزر <small>(يظهر إذا فيه رابط)</small></span><input name="button_label" maxlength="30" placeholder="اطلب الآن"></label>
+          <label class="field full"><span>رابط صورة <small>(اختياري، مربعة صغيرة)</small></span><input name="image_url" inputmode="url" dir="ltr" placeholder="https://…/image.jpg"></label>
+        </div>
+        <div class="field">
+          <span>اللون</span>
+          <div class="theme-picks" id="themePicks"></div>
+        </div>
+        <div class="field">
+          <span>المناطق المستهدفة</span>
+          <div class="toggles" id="regionPicks"></div>
+          <small class="hint-sm">الزائر يُحدَّد منطقته من اختياره أو من موقعه. «كل المناطق» يظهر للجميع.</small>
+        </div>
+        <div class="bd-grid">
+          <label class="field"><span>يبدأ في</span><input type="date" name="starts_on" required dir="ltr"></label>
+          <label class="field"><span>ينتهي في</span><input type="date" name="ends_on" required dir="ltr"></label>
+        </div>
+        <div class="bd-quick" id="durationPicks" role="group" aria-label="مدة سريعة">
+          <span class="muted">المدة:</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="7">أسبوع</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="30">شهر</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="90">3 شهور</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="180">6 شهور</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="365">سنة</button>
+        </div>
+        <div class="bd-grid">
+          <label class="field"><span>وزن الظهور</span>
+            <select name="priority"><option value="1">عادي</option><option value="2">أعلى قليلًا</option><option value="3">مرتفع</option><option value="5">أعلى أولوية</option></select>
+          </label>
+          <label class="field"><span>اسم المعلِن <small>(خاص)</small></span><input name="advertiser" maxlength="80"></label>
+          <label class="field full"><span>ملاحظة <small>(خاصة: المبلغ، رقم الحوالة…)</small></span><input name="note" maxlength="300"></label>
+        </div>
+        <label class="check"><input type="checkbox" name="active" checked><span>الإعلان فعّال</span></label>
+        <p class="error" id="bannerError" hidden></p>
+        <div class="bd-actions">
+          <button type="submit" class="btn btn-primary btn-pop" id="saveBannerBtn">💾 حفظ الإعلان</button>
+          <button type="button" class="btn btn-ghost" data-close>إلغاء</button>
+        </div>
+      </form>
+    </dialog>
 
     <!-- تفاصيل متجر -->
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>

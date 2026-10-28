@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { storage, dayKey } from './utils.js';
+import { storage, dayKey, riyadhDay } from './utils.js';
 import { getClient, authErrorMessage } from './supabase-client.js';
 import { searchLocal } from './search.js';
 
@@ -17,6 +17,7 @@ const DEMO = {
   ownerSession: 'dukkan.demoOwnerSession',
   impressions: 'dukkan.demoImpressions',
   reports: 'dukkan.demoReports',
+  banners: 'dukkan.demoBanners',
 };
 
 export const isDemo = !LIVE;
@@ -102,15 +103,19 @@ export function refreshStores() {
 // البحث: من السيرفر (أقرب 30 متجر في كل صفحة + عدد المتاجر في كل مدينة)
 export async function searchStores(params) {
   if (serverSearch) {
-    const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/search_stores`, {
-      method: 'POST',
-      headers: headers(),
-      body: JSON.stringify({
-        p_lat: params.lat ?? null, p_lng: params.lng ?? null, p_radius_km: params.radius || null,
-        p_region: params.region || null, p_city: params.city || null, p_category: params.category || null,
-        p_entity: params.entity || null, p_q: params.q || null, p_offset: params.offset || 0,
-      }),
+    const call = body => fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/search_stores`, {
+      method: 'POST', headers: headers(), body: JSON.stringify(body),
     });
+    const base = {
+      p_lat: params.lat ?? null, p_lng: params.lng ?? null, p_radius_km: params.radius || null,
+      p_region: params.region || null, p_city: params.city || null, p_category: params.category || null,
+      p_entity: params.entity || null, p_offset: params.offset || 0,
+    };
+    let res = await call({
+      ...base, p_terms: params.terms || [], p_delivery: params.delivery || null, p_boost: params.boost || [], p_id: params.id || null,
+    });
+    // قاعدة البيانات قبل الترحيل 007: نرجع للبحث البسيط بالنص
+    if (res.status === 404) res = await call({ ...base, p_q: params.q || null });
     if (res.ok) return res.json();
     if (res.status === 429) {
       const body = await res.json().catch(() => ({}));
@@ -149,6 +154,60 @@ export async function submitReport({ storeId, reason, details, contact }) {
     status: 'open', created_at: new Date().toISOString(), demo_self: true,
   });
   storage(DEMO.reports, reports);
+}
+
+// ---- البنر الإعلاني تحت الخريطة ----
+// إعلان تجريبي واحد في أول مرة، حتى ترى شكل البنر
+export function demoBannerList() {
+  let list = storage(DEMO.banners);
+  if (!list) {
+    const start = riyadhDay();
+    const end = riyadhDay(Date.now() + 90 * 86400000);
+    list = [{
+      id: 1, title: 'مساحتك الإعلانية هنا', body: 'بنر مدفوع يظهر تحت الخريطة، وتختار له المنطقة والمدة من لوحة التحكم.',
+      button_label: 'اعرف أكثر', link_url: 'https://example.com', image_url: null, theme: 'violet', regions: [],
+      starts_on: start, ends_on: end, active: true, priority: 1, advertiser: 'مثال', note: null, created_at: new Date().toISOString(),
+    }];
+    storage(DEMO.banners, list);
+  }
+  return list;
+}
+
+function demoBanners() {
+  const today = riyadhDay();
+  return demoBannerList().filter(b => b.active !== false && b.starts_on <= today && b.ends_on >= today);
+}
+
+// يرجع إعلانًا واحدًا مناسبًا لمنطقة الزائر (أو null)، ويحسب ظهوره
+export async function getBanner(region) {
+  if (LIVE) {
+    try {
+      const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/get_banner`, {
+        method: 'POST', headers: headers(), body: JSON.stringify({ p_region: region || null, p_count: !LOCAL_HOST }),
+      });
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
+  }
+  const list = demoBanners().filter(b => !b.regions?.length || b.regions.includes(region));
+  if (!list.length) return null;
+  const pick = list.map(b => ({ b, k: Math.random() ** (1 / (b.priority || 1)) })).sort((x, y) => y.k - x.k)[0].b;
+  const stats = storage(`${DEMO.banners}Stats`) || {};
+  (stats[pick.id] ||= { impressions: 0, clicks: 0 }).impressions += 1;
+  storage(`${DEMO.banners}Stats`, stats);
+  return pick;
+}
+
+export function bannerClick(id) {
+  if (LIVE) {
+    if (LOCAL_HOST) return;
+    fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/banner_click`, {
+      method: 'POST', headers: headers(), body: JSON.stringify({ p_id: id }), keepalive: true,
+    }).catch(() => {});
+    return;
+  }
+  const stats = storage(`${DEMO.banners}Stats`) || {};
+  (stats[id] ||= { impressions: 0, clicks: 0 }).clicks += 1;
+  storage(`${DEMO.banners}Stats`, stats);
 }
 
 // يدخل بحساب صاحب المتجر أو ينشئه، حتى يرتبط المتجر بحسابه

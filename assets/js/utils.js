@@ -6,6 +6,12 @@ export function escapeHtml(value) {
   })[c]);
 }
 
+// مصدر صورة الشعار: رابط http/https، أو صورة مصغّرة مرفوعة (data:image) بصيغ مضغوطة فقط
+export function safeImage(value) {
+  if (typeof value === 'string' && /^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(value) && value.length <= 12000) return value;
+  return safeUrl(value);
+}
+
 // يقبل روابط http/https فقط حتى لا تُحقن روابط javascript:
 export function safeUrl(value) {
   try {
@@ -118,6 +124,11 @@ export function storage(key, value) {
 }
 
 // مفتاح اليوم بالتوقيت المحلي بصيغة YYYY-MM-DD
+// تاريخ اليوم بتوقيت الرياض (نفس ما تعتمده قاعدة البيانات في مدة الإعلانات)
+export function riyadhDay(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Riyadh' }).format(new Date(date));
+}
+
 export function dayKey(date = new Date()) {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

@@ -5,6 +5,8 @@ import {
 import { submitStore, isDemo } from './api.js';
 import { createOwnerBackend } from './owner-data.js';
 import { createMap, pinIcon } from './map.js';
+import { normalize } from './intent.js';
+import { compressLogo } from './image.js';
 import { locate, accuracyLabel, geoErrorMessage, searchPlaces, reverseGeocode } from './geo.js';
 import {
   inSaudi, nearestCity, parseLocation, normalizeUrl, normalizeHandle, normalizePhone, safeUrl, escapeHtml, storeCategories,
@@ -58,10 +60,96 @@ function applyFormSettings() {
     opt.textContent = required ? '*' : '(اختياري)';
     opt.classList.toggle('req', required);
     for (const input of wrap.querySelectorAll('input, textarea')) {
+      if (input.name === 'logo_url') logoRequired = required;
       if (TEXT_FIELDS.includes(input.name)) input.required = required;
     }
   }
 }
+
+// ---- الوسوم: كلمات يبحث بها الناس (بخور، عود…) ----
+const MAX_TAGS = 10;
+let tags = [];
+
+function renderTags() {
+  $('tagList').innerHTML = tags.map((t, i) =>
+    `<span class="tag-chip">${escapeHtml(t)}<button type="button" data-remove-tag="${i}" aria-label="حذف ${escapeHtml(t)}">✕</button></span>`).join('');
+  $('tagInput').disabled = tags.length >= MAX_TAGS;
+  $('tagInput').placeholder = tags.length >= MAX_TAGS ? 'وصلت للحد (10 كلمات)' : tags.length ? '' : 'مثال: بخور، عود، دهن عود';
+}
+
+function addTags(text) {
+  for (const raw of String(text).split(/[,،\n]/)) {
+    const tag = raw.replace(/\s+/g, ' ').trim().slice(0, 30);
+    if (!tag || tags.length >= MAX_TAGS) continue;
+    if (!tags.some(t => normalize(t) === normalize(tag))) tags.push(tag);
+  }
+  renderTags();
+}
+
+$('tagInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ',' || e.key === '،') {
+    e.preventDefault();
+    addTags(e.target.value);
+    e.target.value = '';
+  } else if (e.key === 'Backspace' && !e.target.value && tags.length) {
+    tags.pop();
+    renderTags();
+  }
+});
+$('tagInput').addEventListener('blur', e => {
+  addTags(e.target.value);
+  e.target.value = '';
+});
+$('tagBox').addEventListener('click', e => {
+  const remove = e.target.closest('[data-remove-tag]');
+  if (remove) {
+    tags.splice(Number(remove.dataset.removeTag), 1);
+    renderTags();
+  }
+  $('tagInput').focus();
+});
+
+// ---- الشعار: رفع صورة (تُضغط في المتصفح) أو رابط ----
+let uploadedLogo = '';
+let logoRequired = false;
+
+function updateLogoUi() {
+  const src = uploadedLogo || (safeUrl(f.logo_url.value) ? f.logo_url.value : '');
+  $('logoPreview').innerHTML = src ? `<img src="${escapeHtml(src)}" alt="" referrerpolicy="no-referrer">` : '🛍️';
+  $('logoRemoveBtn').hidden = !uploadedLogo && !f.logo_url.value;
+  $('logoUploadBtn').textContent = uploadedLogo ? '📷 غيّر الصورة' : '📷 ارفع صورة الشعار';
+  f.logo_url.required = logoRequired && !uploadedLogo;
+}
+
+$('logoUploadBtn').addEventListener('click', () => $('logoFile').click());
+$('logoFile').addEventListener('change', async e => {
+  const [file] = e.target.files;
+  e.target.value = '';
+  if (!file) return;
+  $('logoNote').classList.remove('error');
+  $('logoNote').textContent = 'جارٍ تصغير الصورة…';
+  try {
+    uploadedLogo = await compressLogo(file);
+    f.logo_url.value = '';
+    f.logo_url.setCustomValidity('');
+    $('logoNote').textContent = `✅ جاهزة (${Math.max(1, Math.round(uploadedLogo.length / 1024))} كيلوبايت)`;
+  } catch (err) {
+    $('logoNote').classList.add('error');
+    $('logoNote').textContent = err.message;
+  }
+  updateLogoUi();
+});
+$('logoRemoveBtn').addEventListener('click', () => {
+  uploadedLogo = '';
+  f.logo_url.value = '';
+  $('logoNote').classList.remove('error');
+  $('logoNote').textContent = 'تُصغَّر الصورة تلقائيًا في جوالك قبل الرفع.';
+  updateLogoUi();
+});
+f.logo_url.addEventListener('input', () => {
+  if (f.logo_url.value.trim()) uploadedLogo = '';
+  updateLogoUi();
+});
 
 // ---- المجالات (اختيار متعدد بالترتيب، الأول هو الرئيسي) ----
 let chosenCats = [];
@@ -467,7 +555,8 @@ form.addEventListener('submit', async e => {
     categories: [...chosenCats],
     entity_type: f.entity_type.value,
     description: text('description') || null,
-    logo_url: text('logo_url') || null,
+    logo_url: shown('logo_url') ? uploadedLogo || f.logo_url.value.trim() || null : null,
+    tags: [...tags],
     instagram: normalizeHandle(social('instagram')) || null,
     x_handle: normalizeHandle(social('x_handle')) || null,
     tiktok: normalizeHandle(social('tiktok')) || null,
@@ -563,7 +652,11 @@ async function startEdit() {
   f.url.value = s.url || '';
   chosenCats = [...storeCategories(s)];
   renderCategories();
-  f.logo_url.value = s.logo_url || '';
+  uploadedLogo = s.logo_url?.startsWith('data:image/') ? s.logo_url : '';
+  f.logo_url.value = uploadedLogo ? '' : s.logo_url || '';
+  updateLogoUi();
+  tags = [...(s.tags || [])];
+  renderTags();
   f.description.value = s.description || '';
   form.querySelectorAll('input[name="delivery"]').forEach(c => { c.checked = (s.delivery || []).includes(c.value); });
   for (const name of ['instagram', 'x_handle', 'tiktok', 'snapchat']) f[name].value = s[name] || '';
@@ -601,6 +694,10 @@ function resetForm() {
   form.reset();
   chosenCats = [];
   renderCategories();
+  tags = [];
+  renderTags();
+  uploadedLogo = '';
+  updateLogoUi();
   form.classList.remove('validated');
   updateCities();
   updateEntity();

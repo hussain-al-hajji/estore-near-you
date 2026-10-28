@@ -8,7 +8,7 @@ import { createBackend } from './admin-data.js';
 import { createMap, pinIcon } from './map.js';
 import { columnChart, barList, formatNumber, formatCompact } from './charts.js';
 import { billingInfo, BILLING_LABELS, graceRemainingText, fillTemplate, formatDate } from './billing.js';
-import { escapeHtml, safeUrl, dayKey, storeLocations, storeCategories } from './utils.js';
+import { escapeHtml, safeUrl, safeImage, dayKey, riyadhDay, storeLocations, storeCategories } from './utils.js';
 
 const $ = id => document.getElementById(id);
 const backend = await createBackend();
@@ -37,6 +37,8 @@ const state = {
   payments: [],
   edits: [],
   reports: [],
+  banners: [],
+  bannerTotals: new Map(),
   adminSettings: structuredClone(DEFAULT_ADMIN_SETTINGS),
   range: 30,
   clicks: new Map(),
@@ -632,6 +634,8 @@ function reportsSection(s) {
     </section>`;
 }
 
+const logoText = v => (v && v.startsWith('data:image/') ? '🖼️ صورة مرفوعة' : v);
+
 function editSection(s) {
   const edit = editFor(s.id);
   if (!edit) return '';
@@ -646,7 +650,8 @@ function editSection(s) {
     ['المجالات', storeCategories(s).join('، '), (d.categories || [d.category]).join('، ')],
     ['نوع النشاط', ENTITY_TYPES[s.entity_type]?.label, ENTITY_TYPES[d.entity_type]?.label],
     ['النبذة', s.description, d.description],
-    ['الشعار', s.logo_url, d.logo_url],
+    ['الوسوم', (s.tags || []).join('، '), (d.tags || []).join('، ')],
+    ['الشعار', logoText(s.logo_url), logoText(d.logo_url)],
     ['التوصيل', list(s.delivery), list(d.delivery)],
     ['انستقرام', s.instagram, d.instagram],
     ['سناب شات', s.snapchat, d.snapchat],
@@ -700,7 +705,7 @@ function openDrawer(id) {
   if (!s) return;
   state.openId = id;
   const url = safeUrl(s.url);
-  const logo = s.logo_url && safeUrl(s.logo_url);
+  const logo = s.logo_url && safeImage(s.logo_url);
   const o = s.owner || {};
   const socials = [
     s.instagram && ['انستقرام', `https://instagram.com/${encodeURIComponent(s.instagram)}`, `@${s.instagram}`],
@@ -761,6 +766,7 @@ function openDrawer(id) {
       <dl>
         ${infoRow(storeCategories(s).length > 1 ? 'المجالات' : 'المجال', storeCategories(s).map((c, i) => `${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}`).join('<br>'))}
         ${infoRow('النبذة', escapeHtml(s.description || ''))}
+        ${infoRow('الوسوم', (s.tags || []).map(t => `<span class="tag-chip static">${escapeHtml(t)}</span>`).join(' '))}
         ${infoRow('التوصيل', (s.delivery || []).map(d => `${DELIVERY_ICONS[d]} ${DELIVERY[d]}`).join('، '))}
         ${infoRow('التواصل', socials.map(([label, href, text]) => `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${label}: <span dir="ltr">${escapeHtml(text)}</span></a>`).join('<br>'))}
         ${infoRow('النقرات', `${formatNumber(state.clicks.get(s.id) || 0)} خلال آخر ${state.range} يوم`)}
@@ -971,9 +977,11 @@ function renderSettings() {
     </article>
 
     <article class="panel">
-      <h2>🔻 تذييل الموقع وإخلاء المسؤولية</h2>
+      <h2>🔻 التذييل والبيان القانوني وسياسة الخصوصية والشروط</h2>
       <label class="field"><span>نبذة عن المنصة</span><textarea name="footer_about" rows="4" maxlength="600">${escapeHtml(ft.about)}</textarea></label>
       <label class="field"><span>بيان إخلاء المسؤولية <small>(يظهر في نموذج التسجيل وفي التذييل)</small></span><textarea name="legal_disclaimer" rows="3" maxlength="600">${escapeHtml(SETTINGS.legal.disclaimer)}</textarea></label>
+      <label class="field"><span>سياسة الخصوصية <small>(صفحة #privacy · سطر <code>## عنوان</code> للعناوين، و<code>- نص</code> للنقاط)</small></span><textarea name="legal_privacy" rows="12">${escapeHtml(SETTINGS.legal.privacy)}</textarea></label>
+      <label class="field"><span>شروط الاستخدام <small>(صفحة #terms)</small></span><textarea name="legal_terms" rows="12">${escapeHtml(SETTINGS.legal.terms)}</textarea></label>
       <div class="settings-grid">
         <label class="field"><span>العنوان</span>${input('footer_address', ft.address)}</label>
         <label class="field"><span>البريد الإلكتروني</span>${input('footer_email', ft.email, 'type="email" dir="ltr"')}</label>
@@ -1043,6 +1051,11 @@ $('settingsForm').addEventListener('submit', async e => {
     },
     legal: {
       disclaimer: f.legal_disclaimer.value.trim() || DEFAULT_SETTINGS.legal.disclaimer,
+      privacy: f.legal_privacy.value.trim() || DEFAULT_SETTINGS.legal.privacy,
+      terms: f.legal_terms.value.trim() || DEFAULT_SETTINGS.legal.terms,
+      // يتغير تاريخ آخر تحديث فقط إذا تغير النص فعلًا
+      updated: f.legal_privacy.value.trim() === SETTINGS.legal.privacy && f.legal_terms.value.trim() === SETTINGS.legal.terms
+        ? SETTINGS.legal.updated : dayKey(),
     },
     footer: {
       about: f.footer_about.value.trim(),
@@ -1114,9 +1127,227 @@ $('exportBtn').addEventListener('click', () => {
   toast(`⬇️ تم تصدير ${formatNumber(rows.length)} متجر`);
 });
 
+// ---------- الإعلانات (بنر مدفوع تحت الخريطة) ----------
+
+const BANNER_THEMES = { violet: 'بنفسجي', coral: 'مرجاني', lime: 'ليموني', sky: 'سماوي', ink: 'داكن' };
+const BANNER_STATUS = {
+  active: { label: '🟢 نشط', cls: 'on' },
+  scheduled: { label: '🕒 مجدول', cls: 'wait' },
+  ended: { label: '⚪ منتهي', cls: 'off' },
+  paused: { label: '⏸ متوقف', cls: 'off' },
+};
+
+function bannerStatus(b) {
+  const today = riyadhDay();
+  if (!b.active) return 'paused';
+  if (b.ends_on < today) return 'ended';
+  if (b.starts_on > today) return 'scheduled';
+  return 'active';
+}
+
+function addDaysKey(key, days) {
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function daysBetweenKeys(a, b) {
+  return Math.round((new Date(`${b}T00:00:00Z`) - new Date(`${a}T00:00:00Z`)) / 86400000);
+}
+
+function bannerPreviewHtml(b) {
+  const link = safeUrl(b.link_url);
+  const image = b.image_url && safeUrl(b.image_url);
+  const theme = BANNER_THEMES[b.theme] ? b.theme : 'violet';
+  return `<div class="ad-banner ad-${theme}"><div class="ad-static">
+    ${image ? `<img src="${escapeHtml(image)}" alt="" referrerpolicy="no-referrer">` : ''}
+    <span class="ad-text"><small class="ad-tag">إعلان</small><strong>${escapeHtml(b.title || 'عنوان الإعلان')}</strong>${b.body ? `<span>${escapeHtml(b.body)}</span>` : ''}</span>
+    ${link && b.button_label ? `<span class="ad-btn">${escapeHtml(b.button_label)}</span>` : ''}
+  </div></div>`;
+}
+
+async function loadBanners() {
+  try {
+    const [banners, totals] = await Promise.all([backend.banners(), backend.bannerTotals().catch(() => [])]);
+    state.banners = banners;
+    state.bannerTotals = new Map(totals.map(t => [Number(t.banner_id), t]));
+    renderBanners();
+  } catch (err) {
+    $('bannerList').innerHTML = `<div class="status"><span class="big">🛠️</span><strong>الإعلانات تتوفر بعد تشغيل ترحيل قاعدة البيانات 008</strong><span class="muted">${escapeHtml(err.message)}</span></div>`;
+  }
+}
+
+function renderBanners() {
+  const list = state.banners;
+  if (!list.length) {
+    $('bannerList').innerHTML = '<div class="status"><span class="big">📣</span><strong>ما فيه إعلانات بعد</strong><span>اضغط «إعلان جديد» وحدد المناطق والمدة.</span></div>';
+    return;
+  }
+  const order = { active: 0, scheduled: 1, paused: 2, ended: 3 };
+  const sorted = [...list].sort((a, b) => order[bannerStatus(a)] - order[bannerStatus(b)] || b.created_at.localeCompare(a.created_at));
+  $('bannerList').innerHTML = sorted.map(b => {
+    const st = bannerStatus(b);
+    const t = state.bannerTotals.get(b.id) || { impressions: 0, clicks: 0 };
+    const impressions = Number(t.impressions);
+    const clicks = Number(t.clicks);
+    const left = st === 'active' ? ` · باقي ${formatNumber(daysBetweenKeys(riyadhDay(), b.ends_on) + 1)} يوم` : '';
+    return `<article class="banner-card" data-id="${b.id}">
+      ${bannerPreviewHtml(b)}
+      <div class="banner-meta">
+        <span class="status-pill banner-${BANNER_STATUS[st].cls}">${BANNER_STATUS[st].label}</span>
+        <span>📍 ${b.regions?.length ? b.regions.map(escapeHtml).join('، ') : 'كل المناطق'}</span>
+        <span>📅 ${escapeHtml(formatDate(b.starts_on))} ← ${escapeHtml(formatDate(b.ends_on))}${left}</span>
+        <span>👁️ ${formatNumber(impressions)} ظهور · 🖱️ ${formatNumber(clicks)} نقرة${impressions ? ` · ${(clicks / impressions * 100).toFixed(1)}%` : ''}</span>
+        ${b.advertiser ? `<span>🏷️ ${escapeHtml(b.advertiser)}</span>` : ''}
+        ${b.note ? `<span class="muted">📝 ${escapeHtml(b.note)}</span>` : ''}
+      </div>
+      <div class="banner-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-banner-action="edit">✏️ تعديل</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-banner-action="toggle">${b.active ? '⏸ إيقاف' : '▶️ تشغيل'}</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-banner-action="copy">⧉ نسخ</button>
+        <button type="button" class="btn btn-ghost btn-sm danger" data-banner-action="delete">🗑️</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+const bannerForm = $('bannerForm');
+const bannerDialog = $('bannerDialog');
+let bannerEditId = null;
+let bannerRegions = new Set();
+let bannerTheme = 'violet';
+
+$('themePicks').innerHTML = Object.entries(BANNER_THEMES).map(([k, label]) =>
+  `<label class="theme-pick ad-${k}"><input type="radio" name="theme" value="${k}"><span>${label}</span></label>`).join('');
+
+function renderRegionPicks() {
+  $('regionPicks').innerHTML = `<label class="toggle"><input type="checkbox" data-all-regions${bannerRegions.size ? '' : ' checked'}><span>🇸🇦 كل المناطق</span></label>`
+    + REGIONS.map(r => `<label class="toggle"><input type="checkbox" value="${escapeHtml(r.name)}"${bannerRegions.has(r.name) ? ' checked' : ''}><span>${escapeHtml(r.name)}</span></label>`).join('');
+}
+
+function bannerFromForm() {
+  const f = bannerForm.elements;
+  const text = name => f[name].value.trim() || null;
+  return {
+    title: f.title.value.trim(), body: text('body'), link_url: text('link_url'), button_label: text('button_label'),
+    image_url: text('image_url'), theme: bannerTheme, regions: [...bannerRegions], starts_on: f.starts_on.value, ends_on: f.ends_on.value,
+    priority: Number(f.priority.value), advertiser: text('advertiser'), note: text('note'), active: f.active.checked,
+  };
+}
+
+function updateBannerPreview() {
+  $('bannerPreview').outerHTML = `<aside class="ad-banner-wrap" id="bannerPreview">${bannerPreviewHtml(bannerFromForm())}</aside>`;
+}
+
+function openBannerDialog(b = null, { copy = false } = {}) {
+  bannerEditId = b && !copy ? b.id : null;
+  const f = bannerForm.elements;
+  const today = riyadhDay();
+  $('bannerDialogTitle').textContent = bannerEditId ? 'تعديل الإعلان' : 'إعلان جديد';
+  f.title.value = b?.title ? (copy ? `${b.title} (نسخة)` : b.title) : '';
+  f.body.value = b?.body || '';
+  f.link_url.value = b?.link_url || '';
+  f.button_label.value = b?.button_label || '';
+  f.image_url.value = b?.image_url || '';
+  f.starts_on.value = b && !copy ? b.starts_on : today;
+  f.ends_on.value = b && !copy ? b.ends_on : addDaysKey(today, 30);
+  f.priority.value = String(b?.priority && [1, 2, 3, 5].includes(b.priority) ? b.priority : 1);
+  f.advertiser.value = b?.advertiser || '';
+  f.note.value = b?.note || '';
+  f.active.checked = b ? Boolean(b.active) : true;
+  bannerTheme = b?.theme || 'violet';
+  bannerForm.querySelector(`input[name="theme"][value="${bannerTheme}"]`).checked = true;
+  bannerRegions = new Set(b?.regions || []);
+  renderRegionPicks();
+  $('bannerError').hidden = true;
+  bannerForm.classList.remove('validated');
+  updateBannerPreview();
+  bannerDialog.showModal();
+}
+
+$('newBannerBtn').addEventListener('click', () => openBannerDialog());
+bannerForm.addEventListener('input', updateBannerPreview);
+bannerForm.addEventListener('change', e => {
+  if (e.target.name === 'theme') bannerTheme = e.target.value;
+  if (e.target.closest('#regionPicks')) {
+    if (e.target.hasAttribute('data-all-regions')) bannerRegions.clear();
+    else if (e.target.checked) bannerRegions.add(e.target.value);
+    else bannerRegions.delete(e.target.value);
+    renderRegionPicks();
+  }
+  updateBannerPreview();
+});
+$('durationPicks').addEventListener('click', e => {
+  const days = Number(e.target.closest('[data-days]')?.dataset.days);
+  if (!days) return;
+  const f = bannerForm.elements;
+  f.ends_on.value = addDaysKey(f.starts_on.value || riyadhDay(), days - 1);
+  updateBannerPreview();
+});
+bannerDialog.addEventListener('click', e => {
+  if (e.target === bannerDialog || e.target.closest('[data-close]')) bannerDialog.close();
+});
+
+bannerForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = bannerForm.elements;
+  const err = msg => {
+    $('bannerError').textContent = msg;
+    $('bannerError').hidden = !msg;
+  };
+  err('');
+  bannerForm.classList.add('validated');
+  const b = bannerFromForm();
+  if (!b.title) return err('اكتب عنوان الإعلان.');
+  for (const key of ['link_url', 'image_url']) {
+    if (b[key] && !safeUrl(b[key])) return err('الروابط لازم تبدأ بـ https://');
+  }
+  if (!b.starts_on || !b.ends_on) return err('حدد تاريخ البداية والنهاية.');
+  if (b.ends_on < b.starts_on) return err('تاريخ النهاية قبل تاريخ البداية.');
+  if (b.link_url && !b.button_label) b.button_label = 'تفاصيل أكثر';
+  const btn = $('saveBannerBtn');
+  btn.disabled = true;
+  try {
+    await backend.saveBanner(bannerEditId ? { id: bannerEditId, ...b } : b);
+    bannerDialog.close();
+    toast('💾 تم حفظ الإعلان');
+    await loadBanners();
+  } catch (error) {
+    err(`تعذر الحفظ: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+  return undefined;
+});
+
+$('bannerList').addEventListener('click', async e => {
+  const action = e.target.closest('[data-banner-action]')?.dataset.bannerAction;
+  const card = e.target.closest('.banner-card');
+  if (!action || !card) return;
+  const b = state.banners.find(x => x.id === Number(card.dataset.id));
+  if (!b) return;
+  try {
+    if (action === 'edit') openBannerDialog(b);
+    else if (action === 'copy') openBannerDialog(b, { copy: true });
+    else if (action === 'toggle') {
+      const { id, created_at: _c, ...fields } = b;
+      await backend.saveBanner({ id, ...fields, active: !b.active });
+      toast(b.active ? '⏸ تم إيقاف الإعلان' : '▶️ تم تشغيل الإعلان');
+      await loadBanners();
+    } else if (action === 'delete') {
+      if (!confirm(`حذف إعلان «${b.title}» نهائيًا مع إحصائياته؟`)) return;
+      await backend.deleteBanner(b.id);
+      toast('🗑️ تم حذف الإعلان');
+      await loadBanners();
+    }
+  } catch (err) {
+    toast(`تعذر تنفيذ العملية: ${err.message}`, 'error');
+  }
+});
+
 // ---------- التنقل ----------
 
-const TABS = { '#admin/stores': 'stores', '#admin/settings': 'settings' };
+const TABS = { '#admin/stores': 'stores', '#admin/banners': 'banners', '#admin/settings': 'settings' };
 
 function route() {
   if (!location.hash.startsWith('#admin')) return;
@@ -1126,6 +1357,7 @@ function route() {
     t.classList.toggle('active', t.dataset.tab === tab);
     t.setAttribute('aria-selected', String(t.dataset.tab === tab));
   });
+  if (tab === 'banners' && !$('appView').hidden) loadBanners();
 }
 window.addEventListener('hashchange', route);
 

@@ -1,4 +1,4 @@
-import { isDemo, demoAllStores, DEMO_KEYS, demoPerformance, demoApplyEdit } from './api.js';
+import { isDemo, demoAllStores, DEMO_KEYS, demoPerformance, demoApplyEdit, demoBannerList } from './api.js';
 import { getClient, authErrorMessage } from './supabase-client.js';
 import { storage, dayKey } from './utils.js';
 import { SETTINGS } from './settings.js';
@@ -52,6 +52,13 @@ function liveBackend(sb) {
     closeReport: async (id, status) => {
       check(await sb.from('store_reports').update({ status, resolved_at: new Date().toISOString() }).eq('id', id));
     },
+    banners: async () => check(await sb.from('banners').select('*').order('created_at', { ascending: false })),
+    bannerTotals: async () => check(await sb.rpc('admin_banner_totals')),
+    async saveBanner({ id, ...fields }) {
+      if (id) check(await sb.from('banners').update(fields).eq('id', id));
+      else check(await sb.from('banners').insert(fields));
+    },
+    deleteBanner: async id => { check(await sb.from('banners').delete().eq('id', id)); },
     storageStats: async () => check(await sb.rpc('admin_storage_stats')),
     compactStats: async () => check(await sb.rpc('compact_stats')),
     adminSettings: async () => check(await sb.from('admin_settings').select('data').eq('id', 1).maybeSingle())?.data || {},
@@ -171,6 +178,18 @@ function demoBackend() {
       storage(DEMO_KEYS.edits, edits);
     },
     performance: async (id, days) => demoPerformance(id, days),
+    banners: async () => [...demoBannerList()].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    bannerTotals: async () => Object.entries(storage(`${DEMO_KEYS.banners}Stats`) || {})
+      .map(([id, s]) => ({ banner_id: Number(id), impressions: s.impressions, clicks: s.clicks })),
+    async saveBanner({ id, ...fields }) {
+      const list = demoBannerList();
+      if (id) Object.assign(list.find(b => b.id === id), fields);
+      else list.push({ id: Date.now(), created_at: new Date().toISOString(), ...fields });
+      storage(DEMO_KEYS.banners, list);
+    },
+    async deleteBanner(id) {
+      storage(DEMO_KEYS.banners, demoBannerList().filter(b => b.id !== id));
+    },
     // بلاغات تجريبية ثابتة + ما ترسله أنت من زر البلاغ
     async reports() {
       const closed = new Set(storage('dukkan.demoClosedReports') || []);

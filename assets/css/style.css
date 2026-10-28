@@ -639,3 +639,79 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .report-done .big { font-size: 52px; line-height: 1; }
 .report-done h2 { margin: 10px 0 4px; }
 .report-done p { color: var(--muted); margin: 0 0 18px; }
+
+/* ---------- فهم نية البحث ---------- */
+.intent-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13.5px; }
+.intent-label { color: var(--muted); font-weight: 600; }
+.intent-chip {
+  display: inline-flex; align-items: center; border-radius: 999px; background: var(--violet-soft); color: var(--violet);
+  font-weight: 600; overflow: hidden;
+}
+.intent-chip.info { background: var(--bg); color: var(--ink); }
+.intent-chip button { border: none; background: none; color: inherit; font: inherit; cursor: pointer; padding: 4px 10px; }
+.intent-chip button[data-dismiss] { padding-inline: 8px 10px; opacity: .6; border-inline-start: 1px solid rgb(0 0 0 / 8%); }
+.intent-chip button:hover { background: rgb(0 0 0 / 6%); opacity: 1; }
+.intent-relax { color: var(--muted); }
+.link-btn { border: none; background: none; padding: 0; color: var(--violet); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.share-btn { background: transparent; color: var(--muted); }
+.share-btn:hover { background: var(--violet-soft); color: var(--violet); }
+
+/* ---------- البنر الإعلاني ---------- */
+.ad-banner { margin: 0 0 12px; border-radius: 18px; overflow: hidden; color: #fff; background: var(--violet); }
+.ad-banner > a, .ad-banner > .ad-static {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; color: inherit; text-decoration: none; min-height: 64px;
+}
+.ad-banner img { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; flex: 0 0 auto; background: rgb(255 255 255 / 20%); }
+.ad-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.ad-text strong { font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+.ad-text span { font-size: 13.5px; opacity: .92; overflow-wrap: anywhere; }
+.ad-tag { align-self: flex-start; font-size: 10.5px; font-weight: 700; padding: 0 7px; border-radius: 999px; background: rgb(255 255 255 / 25%); }
+.ad-btn { flex: 0 0 auto; background: #fff; color: var(--ink); font-weight: 700; font-size: 13.5px; padding: 7px 14px; border-radius: 999px; box-shadow: 2px 2px 0 rgb(0 0 0 / 25%); }
+.ad-banner > a:hover .ad-btn { translate: 0 -1px; }
+.ad-violet { background: linear-gradient(135deg, #6c3cff, #4420c2); }
+.ad-coral { background: linear-gradient(135deg, #ff7a5c, #e0431f); }
+.ad-lime { background: linear-gradient(135deg, #c6f135, #8fd11a); color: var(--ink); }
+.ad-sky { background: linear-gradient(135deg, #3fc4ff, #1b8ad8); }
+.ad-ink { background: linear-gradient(135deg, #2a1d5c, #130b33); }
+.ad-lime .ad-tag { background: rgb(0 0 0 / 12%); }
+.ad-lime .ad-btn { background: var(--ink); color: #fff; }
+@media (max-width: 640px) { .ad-banner img { width: 44px; height: 44px; } .ad-btn { padding: 6px 12px; } }
+
+/* ---------- الصفحات القانونية ---------- */
+.legal { max-width: 760px; margin: 0 auto; padding: 18px 16px 48px; }
+.legal-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.legal-tabs a {
+  padding: 8px 16px; border-radius: 999px; border: 2px solid var(--line); background: var(--card);
+  color: var(--ink); font-weight: 600; text-decoration: none;
+}
+.legal-tabs a.active { background: var(--ink); border-color: var(--ink); color: #fff; box-shadow: 3px 3px 0 var(--lime); }
+.legal-doc { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px 22px 28px; line-height: 1.9; }
+.legal-doc h1 { font-family: var(--display); font-weight: 400; font-size: 34px; margin: 0 0 4px; }
+.legal-doc h2 { font-size: 19px; margin: 26px 0 6px; color: var(--violet); }
+.legal-doc p { margin: 0 0 10px; }
+.legal-doc ul { margin: 0 0 10px; padding-inline-start: 22px; }
+.legal-doc li { margin-bottom: 4px; }
+.legal-updated { color: var(--muted); font-size: 14px; }
+.terms-links { margin: -6px 4px 16px; color: var(--muted); font-size: 14px; }
+
+/* ---------- رفع الشعار والوسوم ---------- */
+.logo-pick { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.logo-preview {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; flex: 0 0 auto; overflow: hidden;
+  background: var(--violet-soft); font-size: 26px;
+}
+.logo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.logo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.hint-sm { color: var(--muted); font-size: 13px; }
+.hint-sm.error { color: var(--danger); }
+.tag-box {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; min-height: 48px; cursor: text;
+  border: 2px solid var(--line); border-radius: 14px; background: #fff;
+}
+.tag-box:focus-within { border-color: var(--violet); }
+.tag-list { display: contents; }
+.tag-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--violet-soft); color: var(--violet); border-radius: 999px; padding: 3px 4px 3px 12px; font-weight: 600; font-size: 14px; }
+.tag-chip button { border: none; background: none; color: inherit; cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 50%; }
+.tag-chip button:hover { background: rgb(0 0 0 / 10%); }
+.tag-box input { flex: 1 1 140px; min-width: 120px; border: none; outline: none; background: none; min-height: 34px; padding: 0 4px; box-shadow: none; }
+.cards.is-loading { opacity: .45; transition: opacity .15s; pointer-events: none; }
