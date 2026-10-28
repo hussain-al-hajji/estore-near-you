@@ -83,7 +83,9 @@ function searchParams() {
   const it = understand();
   state.intent = it;
   // عند تصفح الخريطة يتقدم نطاقها على المنطقة والمدينة والمسافة
-  const bounds = state.useBounds ? viewBounds() : null;
+  // مع موقع المستخدم والمسافة «أي مسافة» كل المتاجر داخلة أصلًا، فلا حاجة لنطاق الخريطة
+  const radiusKm = state.userLoc ? Number(els.radius.value) || 0 : 0;
+  const bounds = state.useBounds && !(state.userLoc && !radiusKm) ? viewBounds() : null;
   state.bounds = bounds;
   // ما كتبه الزائر في البحث يتقدم على القوائم المنسدلة
   const region = bounds ? '' : it.region || els.region.value;
@@ -93,7 +95,7 @@ function searchParams() {
   return {
     lat: anchor?.lat, lng: anchor?.lng,
     ...(bounds ? { north: bounds.north, south: bounds.south, east: bounds.east, west: bounds.west } : {}),
-    radius: state.userLoc && !bounds ? Number(els.radius.value) || 0 : 0,
+    radius: radiusKm,
     region, city, category: state.category,
     entity: it.entity || els.entity.value, delivery: it.delivery,
     terms: it.terms, boost: it.boost, q: els.q.value.trim(),
@@ -108,6 +110,9 @@ function hasFilters() {
 function rows() {
   const { region, city } = state.eff;
   const view = state.bounds;
+  const radiusKm = state.userLoc ? Number(els.radius.value) || 0 : 0;
+  // المتجر يظهر إذا موقعه ضمن نطاق الخريطة أو ضمن مسافة المستخدم (يتجمعان)
+  const inRange = l => (view && inBounds(l, view)) || (radiusKm > 0 && haversineKm(state.userLoc.lat, state.userLoc.lng, l.lat, l.lng) <= radiusKm);
   // المتاجر المثبّتة تظهر أولًا عند التصفح بدون كلمات بحث، وتحترم فلتر المجال والنوع
   const it = state.intent;
   const pins = state.shared || it?.terms?.length ? [] : state.pinned
@@ -116,7 +121,7 @@ function rows() {
   const pinnedIds = new Set(pins.map(s => s.id));
   let list = state.results
     .filter(s => !pinnedIds.has(s.id))
-    .map(s => ({ ...s, shownLocs: s.locs.filter(l => (view ? inBounds(l, view) : (!region || l.region === region) && (!city || l.city === city))) }))
+    .map(s => ({ ...s, shownLocs: s.locs.filter(l => ((view || radiusKm > 0) ? (inRange(l) && (!region || l.region === region) && (!city || l.city === city)) : (!region || l.region === region) && (!city || l.city === city))) }))
     .filter(s => s.shownLocs.length);
   if (state.userLoc) {
     list = list.map(s => {
@@ -511,7 +516,7 @@ function render({ fit = false } = {}) {
   els.count.textContent = state.error && !list.length ? 'تعذر التحميل'
     : gated ? '📍 المتاجر القريبة منك' : storesCountLabel(state.total + list.filter(s => s.pinned && !state.results.some(r => r.id === s.id)).length);
   els.subtitle.textContent = gated ? 'فعّل موقعك، أو اختر منطقتك ومدينتك'
-    : state.shared ? 'متجر شاركه معك أحدهم' : state.bounds ? 'داخل نطاق الخريطة' : state.userLoc ? 'مرتبة من الأقرب لك' : (state.eff.city || state.eff.region || 'في كل المملكة');
+    : state.shared ? 'متجر شاركه معك أحدهم' : state.bounds ? (state.userLoc ? 'القريبة منك + داخل نطاق الخريطة' : 'داخل نطاق الخريطة') : state.userLoc ? 'مرتبة من الأقرب لك' : (state.eff.city || state.eff.region || 'في كل المملكة');
   renderIntent();
   refreshBanner();
   els.list.innerHTML = list.map(s => renderCard(s, { selected: s.id === state.selectedId })).join('') + moreHtml(list);
