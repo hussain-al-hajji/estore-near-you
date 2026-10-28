@@ -106,6 +106,9 @@ export function searchLocal(stores, p = {}) {
   const full = rows.filter(r => r.hits >= n).length;
   const thr = n === 0 ? 0 : full >= 10 ? n : best >= n ? Math.max(1, n - 1) : Math.max(best, 1);
   const matched = rows.filter(r => r.hits >= thr);
+  // نطاق الخريطة الواسع جدًا: لا نعرض المتاجر (إلا القريبة من المستخدم)، فقط أعدادها على الفقاعات
+  const wide = p.north != null && (p.east - p.west > 2.6 || p.north - p.south > 1.6);
+  const listed = wide ? matched.filter(r => p.radius > 0 && r.km != null && r.km <= p.radius) : matched;
   // نفس ترتيب قاعدة البيانات: عدد الكلمات المطابقة ثم الأهمية ثم الأقرب ثم الأحدث
   const newest = (a, b) => String(b.s.created_at || '').localeCompare(String(a.s.created_at || '')) || String(a.s.id).localeCompare(String(b.s.id));
   matched.sort((a, b) => b.hits - a.hits || (n ? b.rank - a.rank : 0) || (geo ? a.km - b.km : 0) || newest(a, b));
@@ -116,11 +119,12 @@ export function searchLocal(stores, p = {}) {
   }
   const offset = Math.min(Math.max(Number(p.offset) || 0, 0), MAX_OFFSET);
   return {
-    total: matched.length,
+    total: listed.length,
+    too_wide: wide,
     page_size: PAGE_SIZE,
     max_offset: MAX_OFFSET,
     relaxed: thr > 0 && thr < n,
-    stores: matched.slice(offset, offset + PAGE_SIZE).map(m => m.s),
+    stores: listed.slice(offset, offset + PAGE_SIZE).map(m => m.s),
     cities: [...counts].map(([key, count]) => {
       const [region, city] = key.split('|');
       return { region, city, count };

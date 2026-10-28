@@ -21,7 +21,7 @@ const els = {
 const state = {
   results: [], total: 0, cities: [], pageSize: 30, maxOffset: 60, error: null, relaxed: false,
   intent: null, intentFor: '', dismissed: new Set(), eff: { region: '', city: '' }, shared: null, pinned: [],
-  useBounds: false, bounds: null, lastMove: null,
+  useBounds: false, bounds: null, lastMove: null, tooWide: false,
   userLoc: null, selectedId: null, category: '', gate: true, geoDenied: false,
 };
 const markers = new Map();
@@ -85,7 +85,9 @@ function searchParams() {
   // عند تصفح الخريطة يتقدم نطاقها على المنطقة والمدينة والمسافة
   // مع موقع المستخدم والمسافة «أي مسافة» كل المتاجر داخلة أصلًا، فلا حاجة لنطاق الخريطة
   const radiusKm = state.userLoc ? Number(els.radius.value) || 0 : 0;
-  const bounds = state.useBounds && !(state.userLoc && !radiusKm) ? viewBounds() : null;
+  // بدون «القريبة مني» وبدون منطقة أو مدينة أو كلمات بحث: القائمة تتبع الخريطة دائمًا من أول عرض
+  const auto = !state.userLoc && !els.region.value && !els.city.value && !it.region && !it.city && !it.terms.length;
+  const bounds = (state.useBounds || auto) && !(state.userLoc && !radiusKm) ? viewBounds() : null;
   state.bounds = bounds;
   // ما كتبه الزائر في البحث يتقدم على القوائم المنسدلة
   const region = bounds ? '' : it.region || els.region.value;
@@ -152,7 +154,7 @@ async function search({ fit = false, append = false } = {}) {
     state.results = append ? [...state.results, ...page.filter(r => !have.has(r.id))] : page;
     Object.assign(state, {
       total: res.total, cities: res.cities || [], pageSize: res.page_size || 30, maxOffset: res.max_offset ?? 60, error: null,
-      relaxed: Boolean(res.relaxed),
+      relaxed: Boolean(res.relaxed), tooWide: Boolean(res.too_wide),
     });
   } catch (err) {
     if (seq !== searchSeq) return false;
@@ -351,6 +353,7 @@ function renderIntent() {
       parts.push(`<span class="intent-chip${c.info ? ' info' : ''}"><button type="button" data-intent="${escapeHtml(c.key)}" data-kind="${needsLoc ? 'locate' : 'info'}">${escapeHtml(c.label)}${needsLoc ? ' · فعّل الموقع' : ''}</button><button type="button" data-dismiss="${escapeHtml(c.key)}" aria-label="إلغاء: ${escapeHtml(c.label)}">✕</button></span>`);
     }
   }
+  if (state.tooWide && !state.shared) parts.push('<span class="intent-relax">🔍 قرّب الخريطة لتظهر لك متاجر المنطقة المعروضة، والأرقام على الفقاعات تبيّن عددها.</span>');
   if (state.relaxed && !state.shared) parts.push('<span class="intent-relax">ما لقينا متجر يطابق كل كلماتك، فعرضنا الأقرب لها أولًا.</span>');
   els.intent.innerHTML = parts.join('');
   els.intent.hidden = !parts.length;
@@ -452,13 +455,14 @@ els.banner.addEventListener('click', e => {
 
 // فقاعات المدن تظهر فقط عند التصغير، وعند التقريب تظهر المتاجر نفسها
 function updateCityLayer() {
-  const show = map.getZoom() <= 9;
+  const show = map.getZoom() <= 9 || state.tooWide;
   if (show && !map.hasLayer(cityLayer)) map.addLayer(cityLayer);
   if (!show && map.hasLayer(cityLayer)) map.removeLayer(cityLayer);
 }
 
 // ---- تصفح الخريطة: القائمة تتبع النطاق الظاهر عند التحريك أو التكبير ----
 function leaveMapMode() {
+  lastUserAction = 0; // حركة الخريطة الناتجة عن اختيار منطقة ليست تحريكًا من الزائر
   state.useBounds = false;
   state.lastMove = null;
   els.searchHere.hidden = true;
@@ -514,6 +518,7 @@ function render({ fit = false } = {}) {
   const list = gated ? [] : rows();
   if (!gated) scheduleImpressions(list);
   els.count.textContent = state.error && !list.length ? 'تعذر التحميل'
+    : state.tooWide && !list.length ? '🔍 قرّب الخريطة'
     : gated ? '📍 المتاجر القريبة منك' : storesCountLabel(state.total + list.filter(s => s.pinned && !state.results.some(r => r.id === s.id)).length);
   els.subtitle.textContent = gated ? 'فعّل موقعك، أو اختر منطقتك ومدينتك'
     : state.shared ? 'متجر شاركه معك أحدهم' : state.bounds ? (state.userLoc ? 'القريبة منك + داخل نطاق الخريطة' : 'داخل نطاق الخريطة') : state.userLoc ? 'مرتبة من الأقرب لك' : (state.eff.city || state.eff.region || 'في كل المملكة');
@@ -534,6 +539,8 @@ function render({ fit = false } = {}) {
     els.status.innerHTML = gateHtml();
   } else if (!list.length && state.userLoc && els.radius.value) {
     els.status.innerHTML = `<span class="big">📍</span><strong>ما فيه متاجر خلال ${escapeHtml(els.radius.value)} كم منك</strong><span>وسّع المسافة أو تصفح كل المتاجر.</span><button type="button" class="btn btn-primary btn-sm" data-action="widen">وسّع البحث</button>`;
+  } else if (!list.length && state.tooWide) {
+    els.status.innerHTML = '<span class="big">🔍</span><strong>قرّب الخريطة لعرض المتاجر</strong><span>تظهر المتاجر لما تقرّب على منطقة أو مدينة، أو اختر منطقتك ومدينتك من الأعلى. الأرقام على الخريطة تبيّن عدد المتاجر في كل مدينة.</span>';
   } else if (!list.length && state.bounds) {
     els.status.innerHTML = '<span class="big">🗺️</span><strong>ما فيه متاجر في هذا النطاق</strong><span>وسّع الخريطة أو حرّكها لمكان ثاني.</span>';
   } else if (!list.length) {

@@ -814,3 +814,9 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .ad-req-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ad-req-actions:empty { display: none; }
 @media (max-width: 560px) { .ad-kinds { grid-template-columns: 1fr; } }
+.fc-icon {
+  display: inline-grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--violet-soft); color: var(--violet); transition: background .15s, color .15s, transform .15s;
+}
+.fc-icon:hover, .fc-icon:focus-visible { background: var(--violet); color: #fff; transform: translateY(-2px); outline: none; }
+.fc-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

@@ -59,9 +59,12 @@ function applyFormSettings() {
   // بيانات التواصل مع المنصة تظهر هنا فقط (نهاية نموذج التسجيل)
   const email = (SETTINGS.footer.email || '').trim();
   const wa = (SETTINGS.footer.whatsapp || '').replace(/\D/g, '');
+  // أيقونات فقط: الإيميل والرقم لا يُعرضان كنص، ويظهر اسم الوسيلة عند التمرير
+  const mailIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/></svg>';
+  const waIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9.5c.5 2.2 2.3 4 4.5 4.5"/></svg>';
   $('formContactLinks').innerHTML = [
-    email && `<a href="mailto:${escapeHtml(email)}" dir="ltr">📧 ${escapeHtml(email)}</a>`,
-    wa && `<a href="https://wa.me/${escapeHtml(wa)}" target="_blank" rel="noopener" dir="ltr">💬 واتساب: ${escapeHtml(wa)}</a>`,
+    email && `<a class="fc-icon" href="mailto:${escapeHtml(email)}" title="راسلنا على الإيميل" aria-label="راسلنا على الإيميل">${mailIcon}</a>`,
+    wa && `<a class="fc-icon" href="https://wa.me/${escapeHtml(wa)}" target="_blank" rel="noopener" title="تواصل معنا على واتساب" aria-label="تواصل معنا على واتساب">${waIcon}</a>`,
   ].filter(Boolean).join('');
   $('formContact').hidden = !email && !wa;
 
