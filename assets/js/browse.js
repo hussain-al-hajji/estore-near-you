@@ -1,6 +1,6 @@
 import { REGIONS, DELIVERY, DELIVERY_ICONS } from './constants.js';
 import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
-import { fetchStores, isDemo, logEvent, logImpressions } from './api.js';
+import { searchStores, refreshStores, isDemo, logEvent, logImpressions } from './api.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
@@ -15,7 +15,11 @@ const els = {
 };
 
 // gate: قبل السماح بالموقع أو اختيار مدينة/فلتر، نعرض طلب تفعيل الموقع بدل القائمة
-const state = { stores: [], userLoc: null, selectedId: null, category: '', gate: true, geoDenied: false };
+// النتائج تجي من السيرفر صفحة صفحة (30 متجر)، مع عدد المتاجر في كل مدينة للخريطة
+const state = {
+  results: [], total: 0, cities: [], pageSize: 30, maxOffset: 60, error: null,
+  userLoc: null, selectedId: null, category: '', gate: true, geoDenied: false,
+};
 const markers = new Map();
 
 const map = createMap('map');
@@ -23,6 +27,11 @@ const cluster = L.markerClusterGroup({
   showCoverageOnHover: false, maxClusterRadius: 45, iconCreateFunction: clusterIcon,
 });
 map.addLayer(cluster);
+// فقاعات المدن المتقاربة (الدمام والخبر والقطيف مثلًا) تندمج عند التصغير ويظهر مجموعها
+const cityLayer = L.markerClusterGroup({
+  showCoverageOnHover: false, maxClusterRadius: 50,
+  iconCreateFunction: c => cityIcon(c.getAllChildMarkers().reduce((sum, m) => sum + m.options.count, 0)),
+}).addTo(map);
 let userMarker = null;
 let accuracyCircle = null;
 
@@ -53,29 +62,75 @@ function updateCities() {
   if (region) fillSelect(els.city, region.cities.map(c => c.name));
 }
 
-// المتجر قد يكون له أكثر من موقع: الفلترة بالمنطقة/المدينة تطابق أي موقع، والمسافة تُقاس لأقرب موقع
-function filtered() {
-  const q = els.q.value.trim().toLowerCase();
-  const radius = Number(els.radius.value) || 0;
+function searchParams() {
+  return {
+    lat: state.userLoc?.lat, lng: state.userLoc?.lng,
+    radius: state.userLoc ? Number(els.radius.value) || 0 : 0,
+    region: els.region.value, city: els.city.value, category: state.category,
+    entity: els.entity.value, q: els.q.value.trim(),
+  };
+}
+
+function hasFilters() {
+  return Boolean(state.userLoc || els.region.value || state.category || els.entity.value || els.q.value.trim());
+}
+
+// المتجر قد يكون له أكثر من موقع: نعرض المواقع المطابقة للمنطقة/المدينة، والمسافة تُقاس لأقربها
+function rows() {
   const region = els.region.value;
   const city = els.city.value;
-  let rows = state.stores
-    .filter(s =>
-      (!els.entity.value || s.entity_type === els.entity.value)
-      && (!state.category || s.cats.includes(state.category))
-      && (!q || `${s.name} ${s.description || ''} ${s.cats.join(' ')} ${s.locs.map(l => `${l.city} ${l.district || ''}`).join(' ')}`.toLowerCase().includes(q)))
+  let list = state.results
     .map(s => ({ ...s, shownLocs: s.locs.filter(l => (!region || l.region === region) && (!city || l.city === city)) }))
     .filter(s => s.shownLocs.length);
   if (state.userLoc) {
-    rows = rows.map(s => {
+    list = list.map(s => {
       const dists = s.shownLocs.map(l => haversineKm(state.userLoc.lat, state.userLoc.lng, l.lat, l.lng));
       const nearest = dists.indexOf(Math.min(...dists));
       return { ...s, km: dists[nearest], nearest };
     });
-    if (radius) rows = rows.filter(s => s.km <= radius);
-    rows.sort((a, b) => a.km - b.km);
+    list.sort((a, b) => a.km - b.km);
   }
-  return rows;
+  return list;
+}
+
+// ---- البحث من السيرفر ----
+
+let searchSeq = 0;
+async function search({ fit = false, append = false } = {}) {
+  const seq = ++searchSeq;
+  try {
+    const res = await searchStores({ ...searchParams(), offset: append ? state.results.length : 0 });
+    if (seq !== searchSeq) return false;
+    const page = res.stores.map(s => ({ ...s, id: String(s.id), locs: storeLocations(s), cats: storeCategories(s) }));
+    const have = new Set(append ? state.results.map(r => r.id) : []);
+    state.results = append ? [...state.results, ...page.filter(r => !have.has(r.id))] : page;
+    Object.assign(state, {
+      total: res.total, cities: res.cities || [], pageSize: res.page_size || 30, maxOffset: res.max_offset ?? 60, error: null,
+    });
+  } catch (err) {
+    if (seq !== searchSeq) return false;
+    state.error = err.message;
+    if (!append) Object.assign(state, { results: [], total: 0, cities: [] });
+  }
+  render({ fit: fit && !append });
+  return true;
+}
+
+// يجمع التغييرات السريعة (الكتابة، تحديثات الموقع) في طلب واحد. يرجع false إذا جاء بحث أحدث منه
+let searchTimer = null;
+let pendingSearch = null;
+function scheduleSearch({ fit = false } = {}, delay = 0) {
+  clearTimeout(searchTimer);
+  const merged = fit || Boolean(pendingSearch?.fit);
+  pendingSearch?.resolve(false);
+  return new Promise(resolve => {
+    pendingSearch = { fit: merged, resolve };
+    searchTimer = setTimeout(async () => {
+      const job = pendingSearch;
+      pendingSearch = null;
+      job.resolve(await search({ fit: job.fit }));
+    }, delay);
+  });
 }
 
 function mainLoc(s) {
@@ -198,36 +253,80 @@ function scheduleImpressions(rows) {
   }, 1500);
 }
 
+function moreHtml(list) {
+  const shown = state.results.length;
+  if (!list.length || shown >= state.total) return '';
+  if (shown >= state.maxOffset + state.pageSize) {
+    return `<li class="list-more"><span>نعرض ${state.userLoc ? 'أقرب' : 'أحدث'} ${storesCountLabel(shown)} من ${state.total}. اختر مدينتك أو التصنيف أو ابحث بالاسم عشان تلقى غيرها.</span></li>`;
+  }
+  return `<li class="list-more"><button type="button" class="btn btn-ghost" data-action="more">عرض المزيد <small>(${shown} من ${state.total})</small></button></li>`;
+}
+
+function cityIcon(label, city = '') {
+  return L.divIcon({
+    className: 'city-count', html: `<span>${label}</span>${city ? `<b>${escapeHtml(city)}</b>` : ''}`, iconSize: [60, 60],
+  });
+}
+
+// فقاعات بعدد المتاجر في كل مدينة غير المعروضة في القائمة (الضغط عليها يختار المدينة)
+function renderCities(list) {
+  cityLayer.clearLayers();
+  const shown = new Map();
+  for (const s of list) {
+    for (const key of new Set(s.shownLocs.map(l => `${l.region}|${l.city}`))) shown.set(key, (shown.get(key) || 0) + 1);
+  }
+  for (const c of state.cities) {
+    const rest = c.count - (shown.get(`${c.region}|${c.city}`) || 0);
+    const place = REGIONS.find(r => r.name === c.region)?.cities.find(x => x.name === c.city);
+    if (rest <= 0 || !place) continue;
+    const label = shown.has(`${c.region}|${c.city}`) ? `+${rest}` : String(rest);
+    L.marker([place.lat, place.lng], { icon: cityIcon(label, c.city), keyboard: false, count: rest })
+      .bindTooltip(`${storesCountLabel(rest)} ${shown.has(`${c.region}|${c.city}`) ? 'أخرى ' : ''}في ${c.city} · اضغط للعرض`)
+      .on('click', () => pickCity(c.region, c.city))
+      .addTo(cityLayer);
+  }
+}
+
+function pickCity(region, city) {
+  els.region.value = region;
+  updateCities();
+  els.city.value = city;
+  els.city.dispatchEvent(new Event('change'));
+}
+
 function render({ fit = false } = {}) {
-  const rows = filtered();
   const gated = state.gate && !state.userLoc;
-  if (!gated) scheduleImpressions(rows);
-  els.count.textContent = gated ? '📍 المتاجر القريبة منك' : storesCountLabel(rows.length);
+  const list = gated ? [] : rows();
+  if (!gated) scheduleImpressions(list);
+  els.count.textContent = state.error && !list.length ? 'تعذر التحميل'
+    : gated ? '📍 المتاجر القريبة منك' : storesCountLabel(state.total);
   els.subtitle.textContent = gated ? 'فعّل موقعك، أو اختر منطقتك ومدينتك'
     : state.userLoc ? 'مرتبة من الأقرب لك' : (els.city.value || els.region.value || 'في كل المملكة');
-  els.list.innerHTML = gated ? '' : rows.map(cardHtml).join('');
+  els.list.innerHTML = list.map(cardHtml).join('') + moreHtml(list);
   els.list.querySelectorAll('.avatar img').forEach(img => img.addEventListener('error', () => {
     const avatar = img.parentElement;
     avatar.classList.add('avatar-violet');
     avatar.textContent = img.dataset.initial;
   }, { once: true }));
 
-  els.status.hidden = rows.length > 0 && !gated;
-  els.status.classList.toggle('gate', gated);
-  if (gated) {
+  els.status.hidden = list.length > 0 && !gated && !state.error;
+  els.status.classList.toggle('gate', gated && !state.error);
+  if (state.error) {
+    els.status.innerHTML = `<span class="big">⏳</span><strong>${escapeHtml(state.error)}</strong>`;
+  } else if (gated) {
     els.status.innerHTML = gateHtml();
-  } else if (!rows.length && state.userLoc && els.radius.value) {
+  } else if (!list.length && state.userLoc && els.radius.value) {
     els.status.innerHTML = `<span class="big">📍</span><strong>ما فيه متاجر خلال ${escapeHtml(els.radius.value)} كم منك</strong><span>وسّع المسافة أو تصفح كل المتاجر.</span><button type="button" class="btn btn-primary btn-sm" data-action="widen">وسّع البحث</button>`;
-  } else if (!rows.length) {
-    els.status.innerHTML = state.stores.length
+  } else if (!list.length) {
+    els.status.innerHTML = hasFilters()
       ? '<span class="big">🔍</span><strong>ما لقينا متاجر بهالفلاتر</strong><span>جرّب توسّع البحث أو تغيّر التصنيف.</span>'
       : '<span class="big">🛍️</span><strong>ما فيه متاجر للحين</strong><span>كن أول متجر في حيّك!</span><a class="btn btn-primary btn-sm" href="#add">أضف متجرك</a>';
   }
 
   cluster.clearLayers();
   markers.clear();
-  for (const s of rows) {
-    const list = s.shownLocs.map((l, i) => {
+  for (const s of list) {
+    const pins = s.shownLocs.map(l => {
       const m = L.marker([l.lat, l.lng], {
         icon: pinIcon('store', CATEGORY_ICONS[s.category]), title: s.name,
       }).bindPopup(popupHtml(s, l));
@@ -236,12 +335,13 @@ function render({ fit = false } = {}) {
       return m;
     });
     // أقرب موقع أولًا حتى يقرّب عليه زر «على الخريطة»
-    if (s.nearest) list.unshift(list.splice(s.nearest, 1)[0]);
-    markers.set(String(s.id), list);
+    if (s.nearest) pins.unshift(pins.splice(s.nearest, 1)[0]);
+    markers.set(String(s.id), pins);
   }
+  renderCities(list);
 
-  if (fit && rows.length) {
-    const points = rows.flatMap(s => s.shownLocs.map(l => [l.lat, l.lng]));
+  if (fit && list.length) {
+    const points = list.flatMap(s => s.shownLocs.map(l => [l.lat, l.lng]));
     if (state.userLoc) points.push([state.userLoc.lat, state.userLoc.lng]);
     map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 14 });
   }
@@ -263,6 +363,13 @@ function select(id, { fromMap = false } = {}) {
 
 els.list.addEventListener('click', e => {
   if (e.target.closest('a')) return;
+  const more = e.target.closest('[data-action="more"]');
+  if (more) {
+    more.disabled = true;
+    more.textContent = 'جارٍ التحميل…';
+    search({ append: true });
+    return;
+  }
   const card = e.target.closest('.card');
   if (card) select(card.dataset.id);
 });
@@ -280,17 +387,17 @@ els.chips.addEventListener('click', e => {
     c.classList.toggle('active', c === chip);
     c.setAttribute('aria-pressed', String(c === chip));
   });
-  render({ fit: true });
+  scheduleSearch({ fit: true });
 });
 
 els.q.addEventListener('input', () => {
   gateOff();
-  render();
+  scheduleSearch({}, 400);
 });
-els.radius.addEventListener('change', () => render({ fit: true }));
+els.radius.addEventListener('change', () => scheduleSearch({ fit: true }));
 els.entity.addEventListener('change', () => {
   gateOff();
-  render({ fit: true });
+  scheduleSearch({ fit: true });
 });
 // اختيار منطقة أو مدينة يعني تصفحها: نلغي حد المسافة ونبقي الترتيب حسب القرب
 function clearRadius() {
@@ -301,7 +408,7 @@ els.region.addEventListener('change', () => {
   gateOff();
   clearRadius();
   updateCities();
-  render({ fit: true });
+  scheduleSearch({ fit: true });
   storage('dukkan.region', els.region.value);
 });
 els.city.addEventListener('change', () => {
@@ -309,7 +416,7 @@ els.city.addEventListener('change', () => {
   clearRadius();
   const region = REGIONS.find(r => r.name === els.region.value);
   const city = region?.cities.find(c => c.name === els.city.value);
-  render({ fit: !city });
+  scheduleSearch({ fit: !city });
   if (city) map.flyTo([city.lat, city.lng], 11);
   storage('dukkan.city', els.city.value);
 });
@@ -328,7 +435,7 @@ function showGeoNote(text, kind = 'info', autoHide = false) {
 // تقريب الخريطة على المستخدم: نُظهر أقرب المتاجر معه، أو نقرّب عليه إن لم يوجد متاجر قريبة
 function focusUser(accuracy = 0) {
   const { lat, lng } = state.userLoc;
-  const near = filtered().slice(0, 15);
+  const near = rows().slice(0, 15);
   if (near.length) {
     const points = near.map(s => [mainLoc(s).lat, mainLoc(s).lng]);
     points.push([lat, lng]);
@@ -338,7 +445,7 @@ function focusUser(accuracy = 0) {
   }
 }
 
-function setUserLocation(p, { manual = false } = {}) {
+async function setUserLocation(p, { manual = false } = {}) {
   if (!state.userLoc) {
     // البحث بالقرب يتجاوز فلتر المنطقة والمدينة
     els.region.value = '';
@@ -367,8 +474,8 @@ function setUserLocation(p, { manual = false } = {}) {
       radius: p.accuracy, color: '#2fb8ff', weight: 1, fillOpacity: 0.08, interactive: false,
     }).addTo(map);
   }
-  render();
-  if (!manual) focusUser(p.accuracy);
+  const applied = await scheduleSearch({}, 300);
+  if (applied && !manual) focusUser(p.accuracy);
 }
 
 const nearMeLabel = els.nearMe.innerHTML;
@@ -402,12 +509,12 @@ els.status.addEventListener('click', e => {
   const action = e.target.closest('[data-action]')?.dataset.action;
   if (action === 'widen') {
     els.radius.value = '';
-    render({ fit: true });
+    scheduleSearch({ fit: true });
   } else if (action === 'locate-me') {
     els.nearMe.click();
   } else if (action === 'browse-all') {
     gateOff();
-    render({ fit: true });
+    scheduleSearch({ fit: true });
   }
 });
 
@@ -449,19 +556,9 @@ async function init() {
     };
   }
 
-  await load({ fit: true });
+  // قبل تفعيل الموقع نجيب عدد المتاجر في كل مدينة فقط لفقاعات الخريطة
+  await scheduleSearch({ fit: !state.gate });
   if (permission?.state === 'granted' && !state.userLoc) els.nearMe.click();
-}
-
-async function load({ fit = false } = {}) {
-  try {
-    state.stores = (await fetchStores()).map(s => ({ ...s, id: String(s.id), locs: storeLocations(s), cats: storeCategories(s) }));
-    render({ fit });
-  } catch (err) {
-    els.count.textContent = 'تعذر التحميل';
-    els.status.hidden = false;
-    els.status.textContent = err.message;
-  }
 }
 
 init();
@@ -474,5 +571,6 @@ export function onShow() {
     return;
   }
   map.invalidateSize();
-  load();
+  refreshStores();
+  scheduleSearch();
 }

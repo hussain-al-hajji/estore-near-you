@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { storage, dayKey } from './utils.js';
 import { getClient, authErrorMessage } from './supabase-client.js';
+import { searchLocal } from './search.js';
 
 const LIVE = Boolean(CONFIG.supabaseUrl && CONFIG.supabaseAnonKey);
 const DEMO = {
@@ -71,7 +72,8 @@ export async function fetchSettings() {
   return storage(DEMO.settings) || {};
 }
 
-export async function fetchStores() {
+// كل المتاجر دفعة وحدة: للوضع التجريبي، أو احتياطًا إذا قاعدة البيانات ما فيها دالة البحث (قبل الترحيل 005)
+async function fetchAllStores() {
   if (LIVE) {
     const get = columns => fetch(
       `${CONFIG.supabaseUrl}/rest/v1/stores?select=${columns}&status=eq.approved&order=created_at.desc`,
@@ -86,6 +88,43 @@ export async function fetchStores() {
   return (await demoAllStores())
     .filter(s => s.status === 'approved' || s.status === 'pending')
     .map(s => ({ ...s, pending: s.status === 'pending' }));
+}
+
+let allStores = null;
+let serverSearch = LIVE;
+
+// يُستدعى عند الرجوع لصفحة التصفح حتى تظهر المتاجر المضافة أو المعتمدة حديثًا
+export function refreshStores() {
+  allStores = null;
+}
+
+// البحث: من السيرفر (أقرب 30 متجر في كل صفحة + عدد المتاجر في كل مدينة)
+export async function searchStores(params) {
+  if (serverSearch) {
+    const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/search_stores`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({
+        p_lat: params.lat ?? null, p_lng: params.lng ?? null, p_radius_km: params.radius || null,
+        p_region: params.region || null, p_city: params.city || null, p_category: params.category || null,
+        p_entity: params.entity || null, p_q: params.q || null, p_offset: params.offset || 0,
+      }),
+    });
+    if (res.ok) return res.json();
+    if (res.status === 429) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.hint === 'day'
+        ? 'وصلت للحد اليومي للبحث من جهازك. جرّب مرة ثانية بكرة.'
+        : 'بحثت كثير خلال دقيقة 😅 انتظر شوي وجرّب مرة ثانية.');
+    }
+    if (res.status !== 404) throw new Error('ما قدرنا نحمّل المتاجر الحين، حدّث الصفحة بعد شوي.');
+    serverSearch = false;
+  }
+  allStores ||= fetchAllStores().catch(err => {
+    allStores = null;
+    throw err;
+  });
+  return searchLocal(await allStores, params);
 }
 
 // يدخل بحساب صاحب المتجر أو ينشئه، حتى يرتبط المتجر بحسابه

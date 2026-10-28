@@ -254,6 +254,20 @@ select:disabled { background: #f3f1fa; color: var(--muted); }
   background: var(--ink); color: #fff; font-weight: 700; font-size: 15px;
   border: 3px solid var(--lime); box-shadow: 0 0 0 6px rgb(198 241 53 / 35%);
 }
+.city-count { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+.city-count span {
+  display: grid; place-items: center; min-width: 42px; height: 42px; padding: 0 8px; border-radius: 999px;
+  background: var(--violet); color: #fff; font-weight: 700; font-size: 14px;
+  border: 3px solid #fff; box-shadow: 0 0 0 5px rgb(91 46 230 / 22%), 0 3px 8px rgb(28 18 64 / 30%);
+  transition: transform .15s;
+}
+.city-count:hover span { transform: scale(1.1); }
+.city-count b {
+  font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap;
+  background: rgb(255 255 255 / 88%); padding: 0 6px; border-radius: 6px;
+}
+.list-more { grid-column: 1 / -1; list-style: none; display: flex; justify-content: center; padding: 6px 0 14px; text-align: center; color: var(--muted); font-size: 14px; }
+.list-more small { font-weight: 400; opacity: .75; }
 .popup { display: flex; flex-direction: column; gap: 2px; text-align: right; }
 .popup strong { font-size: 15px; }
 .popup span { color: var(--muted); font-size: 13px; }
