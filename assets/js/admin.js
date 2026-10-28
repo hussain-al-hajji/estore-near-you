@@ -1399,16 +1399,19 @@ function renderPinStores(selected = '') {
   const q = $('pinSearch').value.trim().toLowerCase();
   const list = state.stores.filter(s => s.status === 'approved' && (!q || `${s.name} ${s.city}`.toLowerCase().includes(q)) || s.id === selected)
     .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-  const keep = selected || $('pinStore').value;
-  $('pinStore').innerHTML = list.map(s => `<option value="${escapeHtml(s.id)}"${s.id === keep ? ' selected' : ''}>${escapeHtml(s.name)} · ${escapeHtml(s.city)}</option>`).join('');
+  // نحتفظ باختياراتك الحالية أثناء البحث
+  const keep = new Set(selected ? [selected] : [...$('pinStore').selectedOptions].map(o => o.value));
+  $('pinStore').innerHTML = list.map(s => `<option value="${escapeHtml(s.id)}"${keep.has(s.id) ? ' selected' : ''}>${escapeHtml(s.name)} · ${escapeHtml(s.city)}</option>`).join('');
 }
 
 function openPinDialog(pin = null) {
   pinEditId = pin?.id ?? null;
   const f = pinForm.elements;
   const today = riyadhDay();
-  $('pinDialogTitle').textContent = pinEditId ? 'تعديل التثبيت' : 'تثبيت متجر';
+  $('pinDialogTitle').textContent = pinEditId ? 'تعديل التثبيت' : 'تثبيت متاجر';
+  $('pinStore').multiple = !pinEditId;
   $('pinSearch').value = '';
+  $('pinStore').innerHTML = '';
   renderPinStores(pin ? String(pin.store_id) : '');
   f.starts_on.value = pin?.starts_on || today;
   f.ends_on.value = pin?.ends_on || addDaysKey(today, 30);
@@ -1448,19 +1451,22 @@ pinForm.addEventListener('submit', async e => {
   };
   err('');
   const text = name => f[name].value.trim() || null;
+  const storeIds = [...$('pinStore').selectedOptions].map(o => o.value);
   const pin = {
-    store_id: $('pinStore').value, regions: [...pinRegions], starts_on: f.starts_on.value, ends_on: f.ends_on.value,
+    store_id: storeIds[0], regions: [...pinRegions], starts_on: f.starts_on.value, ends_on: f.ends_on.value,
     priority: Number(f.priority.value), advertiser: text('advertiser'), note: text('note'), active: f.active.checked,
   };
-  if (!pin.store_id) return err('اختر المتجر من القائمة.');
+  if (!pin.store_id) return err('اختر متجرًا واحدًا على الأقل من القائمة.');
   if (!pin.starts_on || !pin.ends_on) return err('حدد تاريخ البداية والنهاية.');
   if (pin.ends_on < pin.starts_on) return err('تاريخ النهاية قبل تاريخ البداية.');
   const btn = $('savePinBtn');
   btn.disabled = true;
   try {
-    await backend.savePin(pinEditId ? { id: pinEditId, ...pin } : pin);
+    // تثبيت لكل متجر مختار بنفس المناطق والمدة
+    if (pinEditId) await backend.savePin({ id: pinEditId, ...pin });
+    else for (const id of storeIds) await backend.savePin({ ...pin, store_id: id });
     pinDialog.close();
-    toast('📌 تم حفظ التثبيت');
+    toast(storeIds.length > 1 && !pinEditId ? `📌 تم تثبيت ${formatNumber(storeIds.length)} متاجر` : '📌 تم حفظ التثبيت');
     await loadBanners();
   } catch (error) {
     err(`تعذر الحفظ: ${error.message}`);

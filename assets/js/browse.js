@@ -1,6 +1,6 @@
 import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS } from './constants.js';
 import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
-import { searchStores, refreshStores, submitReport, getBanner, bannerClick, getPinnedStores, isDemo, logEvent, logImpressions } from './api.js';
+import { searchStores, refreshStores, submitReport, getBanners, bannerClick, getPinnedStores, isDemo, logEvent, logImpressions } from './api.js';
 import { parseIntent } from './intent.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
@@ -433,12 +433,34 @@ els.intent.addEventListener('click', e => {
 // ---- البنر الإعلاني تحت الخريطة (يختاره المشرف حسب المنطقة والمدة) ----
 let bannerRegion = null;
 
-function renderBanner(b) {
-  if (!b) {
+let bannerSlides = [];
+let bannerIndex = 0;
+let bannerTimer = null;
+
+// إعلان واحد ثابت، أو عدة إعلانات تتبدل كل 6 ثوانٍ مع نقاط للتنقل
+function renderBanners(list) {
+  clearInterval(bannerTimer);
+  bannerSlides = list;
+  bannerIndex = 0;
+  if (!list.length) {
     els.banner.hidden = true;
     els.banner.innerHTML = '';
     return;
   }
+  showBanner(0);
+  if (list.length > 1) bannerTimer = setInterval(() => { if (!els.banner.matches(':hover')) showBanner(bannerIndex + 1); }, 6000);
+}
+
+function showBanner(i) {
+  bannerIndex = (i + bannerSlides.length) % bannerSlides.length;
+  renderBanner(bannerSlides[bannerIndex]);
+  if (bannerSlides.length > 1) {
+    els.banner.insertAdjacentHTML('beforeend', `<span class="ad-dots">${bannerSlides.map((_, k) =>
+      `<button type="button" data-slide="${k}" class="${k === bannerIndex ? 'on' : ''}" aria-label="إعلان ${k + 1}"></button>`).join('')}</span>`);
+  }
+}
+
+function renderBanner(b) {
   const link = safeUrl(b.link_url);
   const image = b.image_url && safeUrl(b.image_url);
   const inner = `${image ? `<img src="${escapeHtml(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
@@ -455,9 +477,9 @@ async function refreshBanner() {
   const region = state.eff.region || (state.userLoc ? nearestCity(state.userLoc.lat, state.userLoc.lng)?.region : '') || '';
   if (region === bannerRegion) return;
   bannerRegion = region;
-  const [banner, pinned] = await Promise.all([getBanner(region), getPinnedStores(region)]);
+  const [banners, pinned] = await Promise.all([getBanners(region), getPinnedStores(region)]);
   if (region !== bannerRegion) return;
-  renderBanner(banner);
+  renderBanners(banners);
   const next = pinned.map(s => ({ ...s, id: String(s.id), locs: storeLocations(s), cats: storeCategories(s) }));
   if (next.map(s => s.id).join() !== state.pinned.map(s => s.id).join()) {
     state.pinned = next;
@@ -466,6 +488,11 @@ async function refreshBanner() {
 }
 
 els.banner.addEventListener('click', e => {
+  const dot = e.target.closest('[data-slide]');
+  if (dot) {
+    showBanner(Number(dot.dataset.slide));
+    return;
+  }
   const link = e.target.closest('[data-banner]');
   if (link) bannerClick(link.dataset.banner);
 });

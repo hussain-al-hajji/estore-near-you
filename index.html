@@ -584,8 +584,8 @@
         <div class="banner-list" id="bannerList"></div>
         <div class="view-head sub-head">
           <div>
-            <h2>📌 تثبيت متجر</h2>
-            <p class="muted">بدل البنر: ثبّت متجرًا موجودًا في أعلى القائمة لمناطق محددة ولفترة محددة</p>
+            <h2>📌 تثبيت المتاجر</h2>
+            <p class="muted">بدل البنر: ثبّت متجرًا أو أكثر في أعلى القائمة، لمناطق محددة ولفترة محددة</p>
           </div>
           <button type="button" class="btn btn-primary" id="newPinBtn">+ تثبيت متجر</button>
         </div>
@@ -662,13 +662,13 @@
     <dialog class="banner-dialog" id="pinDialog" aria-labelledby="pinDialogTitle">
       <form id="pinForm" novalidate>
         <header class="bd-head">
-          <h2 id="pinDialogTitle">تثبيت متجر</h2>
+          <h2 id="pinDialogTitle">تثبيت متاجر</h2>
           <button type="button" class="close" data-close aria-label="إغلاق">✕</button>
         </header>
         <div class="field">
-          <span>المتجر <b>*</b></span>
+          <span>المتاجر <b>*</b> <small>(تقدر تختار أكثر من متجر: Ctrl أو Shift، أو اضغط مطولًا بالجوال)</small></span>
           <input type="search" id="pinSearch" placeholder="ابحث باسم المتجر…" aria-label="ابحث عن متجر">
-          <select id="pinStore" size="6" aria-label="المتجر"></select>
+          <select id="pinStore" size="6" multiple aria-label="المتاجر"></select>
         </div>
         <div class="field">
           <span>المناطق التي يظهر فيها التثبيت</span>

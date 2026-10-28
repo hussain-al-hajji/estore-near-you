@@ -179,23 +179,22 @@ function demoBanners() {
   return demoBannerList().filter(b => b.active !== false && b.starts_on <= today && b.ends_on >= today);
 }
 
-// يرجع إعلانًا واحدًا مناسبًا لمنطقة الزائر (أو null)، ويحسب ظهوره
-export async function getBanner(region) {
+// كل الإعلانات المناسبة لمنطقة الزائر (حتى 6 بالتناوب)، ويحسب ظهورها
+export async function getBanners(region) {
   if (LIVE) {
     try {
-      const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/get_banner`, {
+      const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/get_banners`, {
         method: 'POST', headers: headers(), body: JSON.stringify({ p_region: region || null, p_count: !LOCAL_HOST }),
       });
-      return res.ok ? await res.json() : null;
-    } catch { return null; }
+      return res.ok ? await res.json() : [];
+    } catch { return []; }
   }
-  const list = demoBanners().filter(b => !b.regions?.length || b.regions.includes(region));
-  if (!list.length) return null;
-  const pick = list.map(b => ({ b, k: Math.random() ** (1 / (b.priority || 1)) })).sort((x, y) => y.k - x.k)[0].b;
+  const list = demoBanners().filter(b => !b.regions?.length || b.regions.includes(region))
+    .map(b => ({ b, k: Math.random() ** (1 / (b.priority || 1)) })).sort((x, y) => y.k - x.k).slice(0, 6).map(x => x.b);
   const stats = storage(`${DEMO.banners}Stats`) || {};
-  (stats[pick.id] ||= { impressions: 0, clicks: 0 }).impressions += 1;
+  for (const b of list) (stats[b.id] ||= { impressions: 0, clicks: 0 }).impressions += 1;
   storage(`${DEMO.banners}Stats`, stats);
-  return pick;
+  return list;
 }
 
 export function bannerClick(id) {
@@ -237,7 +236,7 @@ export async function getPinnedStores(region) {
   const ids = new Set(demoPinList()
     .filter(p => p.active !== false && p.starts_on <= today && p.ends_on >= today && (!p.regions?.length || p.regions.includes(region)))
     .map(p => p.store_id));
-  return (await demoAllStores()).filter(s => s.status === 'approved' && ids.has(s.id)).slice(0, 3);
+  return (await demoAllStores()).filter(s => s.status === 'approved' && ids.has(s.id)).slice(0, 10);
 }
 
 // يدخل بحساب صاحب المتجر أو ينشئه، حتى يرتبط المتجر بحسابه
