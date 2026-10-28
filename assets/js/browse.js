@@ -887,8 +887,9 @@ async function init() {
   }
 
   // قبل تفعيل الموقع نجيب عدد المتاجر في كل مدينة فقط لفقاعات الخريطة
-  await scheduleSearch({ fit: !state.gate });
-  if (permission?.state === 'granted' && !state.userLoc) els.nearMe.click();
+  // الموقع مسموح سابقًا: نحدده فورًا دون انتظار أي شيء، ودون الحاجة لزر «القريبة مني»
+  if (permission?.state === 'granted' && !state.shared) els.nearMe.click();
+  await scheduleSearch({ fit: !state.gate && !state.userLoc });
 }
 
 init();
