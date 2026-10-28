@@ -6,6 +6,7 @@ import { submitStore, isDemo } from './api.js';
 import { createOwnerBackend } from './owner-data.js';
 import { createMap, pinIcon } from './map.js';
 import { normalize } from './intent.js';
+import { cardHtml } from './card.js';
 import { compressLogo } from './image.js';
 import { locate, accuracyLabel, geoErrorMessage, searchPlaces, reverseGeocode } from './geo.js';
 import {
@@ -73,9 +74,54 @@ function applyFormSettings() {
 const MAX_TAGS = 20;
 let tags = [];
 
+// ---- معاينة حية لشكل المتجر عند الزوار ----
+let previewReady = false;
+let previewFrame = 0;
+
+function previewStore() {
+  const picked = locations.filter(l => l.region && l.city);
+  const locs = picked.length ? picked.map(l => ({ lat: l.lat, lng: l.lng, region: l.region, city: l.city, district: l.district })) : [{ city: 'مدينتك', district: '', region: '' }];
+  const url = f.url.value.trim() && safeUrl(normalizeUrl(f.url.value)) ? normalizeUrl(f.url.value) : null;
+  const logo = uploadedLogo || (safeUrl(f.logo_url.value.trim()) ? f.logo_url.value.trim() : null);
+  const handle = name => normalizeHandle(f[name].value) || null;
+  const physical = form.querySelector('input[name="physical_store"]:checked')?.value;
+  return {
+    id: 'preview', name: f.name.value.trim() || 'اسم متجرك', url, logo_url: logo, description: f.description.value.trim(),
+    cats: [...chosenCats], category: chosenCats[0], entity_type: f.entity_type.value || '',
+    has_physical_store: physical === 'yes' ? true : physical === 'no' ? false : null, approximate: f.approximate.checked,
+    delivery: [...form.querySelectorAll('input[name="delivery"]:checked')].map(c => c.value),
+    instagram: handle('instagram'), snapchat: handle('snapchat'), tiktok: handle('tiktok'), x_handle: handle('x_handle'),
+    whatsapp: normalizePhone(f.whatsapp.value) || null, store_email: f.store_email.value.trim() || null,
+    locs, shownLocs: locs,
+  };
+}
+
+function updatePreview() {
+  if (!previewReady) return;
+  cancelAnimationFrame(previewFrame);
+  previewFrame = requestAnimationFrame(() => {
+    const s = previewStore();
+    $('livePreviewCard').innerHTML = cardHtml(s, { preview: true });
+    $('lpWarn').hidden = Boolean(s.url || s.instagram || s.snapchat || s.tiktok || s.x_handle);
+    for (const img of $('livePreviewCard').querySelectorAll('.avatar img')) {
+      img.addEventListener('error', () => { img.parentElement.classList.add('avatar-violet'); img.parentElement.textContent = img.dataset.initial; }, { once: true });
+    }
+  });
+}
+
+form.addEventListener('input', updatePreview);
+form.addEventListener('change', updatePreview);
+$('lpToggle').addEventListener('click', () => {
+  const open = $('lpBody').hidden;
+  $('lpBody').hidden = !open;
+  $('lpToggle').textContent = open ? 'إخفاء' : 'إظهار';
+  $('lpToggle').setAttribute('aria-expanded', String(open));
+});
+
 function renderTags() {
   $('tagList').innerHTML = tags.map((t, i) =>
     `<span class="tag-chip">${escapeHtml(t)}<button type="button" data-remove-tag="${i}" aria-label="حذف ${escapeHtml(t)}">✕</button></span>`).join('');
+  updatePreview();
   $('tagInput').disabled = tags.length >= MAX_TAGS;
   $('tagInput').placeholder = tags.length >= MAX_TAGS ? 'وصلت للحد (20 كلمة)' : tags.length ? '' : 'مثال: بخور، عود، دهن عود';
 }
@@ -122,6 +168,7 @@ function updateLogoUi() {
   $('logoRemoveBtn').hidden = !uploadedLogo && !f.logo_url.value;
   $('logoUploadBtn').textContent = uploadedLogo ? '📷 غيّر الصورة' : '📷 ارفع صورة الشعار';
   f.logo_url.required = logoRequired && !uploadedLogo;
+  updatePreview();
 }
 
 $('logoUploadBtn').addEventListener('click', () => $('logoFile').click());
@@ -163,6 +210,7 @@ function renderCategories() {
     const i = chosenCats.indexOf(c);
     return `<label class="cat-option${i === 0 ? ' primary' : ''}"><input type="checkbox" name="categories" value="${escapeHtml(c)}"${i !== -1 ? ' checked' : ''}><span>${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span></label>`;
   }).join('');
+  updatePreview();
   $('catSummary').innerHTML = chosenCats.length
     ? chosenCats.map((c, i) => `<span class="cat-chip">${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span>`).join('')
     : 'اختر مجالات متجرك…';
@@ -202,6 +250,7 @@ $('categoryToggles').addEventListener('change', e => {
 });
 
 function updateEntity() {
+  updatePreview();
   const type = f.entity_type.value;
   $('crLabel').textContent = 'السجل التجاري / وثيقة العمل الحر';
 }
@@ -338,6 +387,7 @@ function refreshAll() {
   renderTabs();
   renderMarkers();
   renderCoords();
+  updatePreview();
 }
 
 function selectLocation(i, { fly = true } = {}) {
@@ -494,6 +544,8 @@ $('useMyLocation').addEventListener('click', async () => {
 });
 
 refreshAll();
+previewReady = true;
+updatePreview();
 
 // ---- الإرسال ----
 // نمسح رسائل التحقق المخصصة عند التعديل حتى يُعاد فحصها عند الإرسال

@@ -751,3 +751,16 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .cat-option input { width: 20px; height: 20px; min-height: 0; margin: 0; accent-color: var(--violet); flex: 0 0 auto; }
 .cat-option.primary { font-weight: 700; }
 .form-error-focus { outline: 3px solid var(--danger); }
+
+/* ---------- معاينة المتجر في صفحة التسجيل ---------- */
+.live-preview {
+  position: sticky; top: 8px; z-index: 5; margin-bottom: 18px; padding: 14px 16px 16px;
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 2px dashed var(--violet);
+}
+.lp-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; }
+.lp-head small { color: var(--muted); }
+.lp-toggle { margin-inline-start: auto; }
+.lp-cards { grid-template-columns: 1fr; }
+.card-preview { pointer-events: none; }
+.live-preview .notice { margin-top: 10px; }
+@media (max-width: 900px), (max-height: 700px) { .live-preview { position: static; } }

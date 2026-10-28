@@ -165,6 +165,18 @@
       <p class="edit-notice" id="editNotice" hidden></p>
       <p class="demo-banner inline" id="addDemoBanner" hidden>🧪 وضع تجريبي: الطلب يُحفظ في متصفحك فقط ولا يُرسل لأي خادم.</p>
 
+      <aside class="live-preview" id="livePreview" aria-label="معاينة متجرك">
+        <div class="lp-head">
+          <strong>👀 هكذا يظهر متجرك للزوار</strong>
+          <small>تتحدث المعاينة وأنت تكتب</small>
+          <button type="button" class="link-btn lp-toggle" id="lpToggle" aria-expanded="true">إخفاء</button>
+        </div>
+        <div class="lp-body" id="lpBody">
+          <ul class="cards lp-cards" id="livePreviewCard"></ul>
+          <p class="notice warn" id="lpWarn" hidden>⚠️ ما أضفت رابط متجر ولا حساب سوشيال ميديا، فلن يظهر متجرك على الموقع.</p>
+        </div>
+      </aside>
+
       <form id="storeForm" novalidate>
         <fieldset>
           <legend><span class="step">1</span> عرّفنا على متجرك</legend>
