@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { storage, dayKey, riyadhDay } from './utils.js';
+import { storage, dayKey, riyadhDay, hasPublicAddress } from './utils.js';
 import { getClient, authErrorMessage } from './supabase-client.js';
 import { searchLocal } from './search.js';
 
@@ -85,7 +85,7 @@ async function fetchAllStores() {
     let res = await get(PUBLIC_COLUMNS);
     if (!res.ok) res = await get(LEGACY_COLUMNS);
     if (!res.ok) throw new Error('ما قدرنا نحمّل المتاجر الحين، حدّث الصفحة بعد شوي.');
-    return res.json();
+    return (await res.json()).filter(hasPublicAddress);
   }
   // نعرض الطلبات المعلقة أيضًا (بشارة) حتى تجرب المسار كاملًا
   return (await demoAllStores())

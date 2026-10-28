@@ -375,3 +375,4 @@ small.bill { display: block; width: fit-content; margin-top: 4px; }
 .sub-head h2 { margin: 0; font-size: 22px; }
 .pin-head { display: flex; align-items: center; gap: 10px; }
 #pinStore { width: 100%; min-height: 150px; border: 2px solid var(--line); border-radius: 14px; padding: 6px; background: #fff; font: inherit; }
+.drawer-warn { margin: 14px 16px 0; padding: 10px 14px; border-radius: 14px; background: #fff3d6; color: #7a5200; font-size: 14px; }

@@ -44,10 +44,13 @@ function applyFormSettings() {
   $('successLink').textContent = 'تصفح المتاجر';
   $('successLink').href = '#';
   $('pricingNote').textContent = `💳 ${pricingText()}`;
-  const launch = isLaunchPeriod() ? `\nمجاني حتى ${formatDate(SETTINGS.pricing.launch_end)}` : '';
   for (const el of form.querySelectorAll('[data-price]')) {
     const type = el.dataset.price;
-    el.textContent = `${priceFor(type)} ر.س سنويًا · مهلة السداد ${graceLabel(graceFor(type))}${launch}`;
+    el.textContent = `${priceFor(type)} ر.س سنويًا · مهلة السداد ${graceLabel(graceFor(type))}`;
+  }
+  for (const tag of form.querySelectorAll('[data-launch]')) {
+    tag.hidden = !isLaunchPeriod();
+    tag.textContent = `🎉 مجاني حتى ${formatDate(SETTINGS.pricing.launch_end)}`;
   }
 
   renderCategories();
@@ -67,14 +70,14 @@ function applyFormSettings() {
 }
 
 // ---- الوسوم: كلمات يبحث بها الناس (بخور، عود…) ----
-const MAX_TAGS = 10;
+const MAX_TAGS = 20;
 let tags = [];
 
 function renderTags() {
   $('tagList').innerHTML = tags.map((t, i) =>
     `<span class="tag-chip">${escapeHtml(t)}<button type="button" data-remove-tag="${i}" aria-label="حذف ${escapeHtml(t)}">✕</button></span>`).join('');
   $('tagInput').disabled = tags.length >= MAX_TAGS;
-  $('tagInput').placeholder = tags.length >= MAX_TAGS ? 'وصلت للحد (10 كلمات)' : tags.length ? '' : 'مثال: بخور، عود، دهن عود';
+  $('tagInput').placeholder = tags.length >= MAX_TAGS ? 'وصلت للحد (20 كلمة)' : tags.length ? '' : 'مثال: بخور، عود، دهن عود';
 }
 
 function addTags(text) {
@@ -158,9 +161,28 @@ function renderCategories() {
   const all = [...CATEGORIES, ...chosenCats.filter(c => !CATEGORIES.includes(c))];
   $('categoryToggles').innerHTML = all.map(c => {
     const i = chosenCats.indexOf(c);
-    return `<label class="toggle${i === 0 ? ' primary' : ''}"><input type="checkbox" name="categories" value="${escapeHtml(c)}"${i !== -1 ? ' checked' : ''}><span>${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span></label>`;
+    return `<label class="cat-option${i === 0 ? ' primary' : ''}"><input type="checkbox" name="categories" value="${escapeHtml(c)}"${i !== -1 ? ' checked' : ''}><span>${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span></label>`;
   }).join('');
+  $('catSummary').innerHTML = chosenCats.length
+    ? chosenCats.map((c, i) => `<span class="cat-chip">${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span>`).join('')
+    : 'اختر مجالات متجرك…';
 }
+
+// القائمة المنسدلة: تُفتح بالضغط وتُغلق بالضغط خارجها أو Esc
+function toggleCatPanel(open = $('categoryToggles').hidden) {
+  $('categoryToggles').hidden = !open;
+  $('catBtn').setAttribute('aria-expanded', String(open));
+}
+$('catBtn').addEventListener('click', () => toggleCatPanel());
+document.addEventListener('click', e => {
+  if (!e.target.closest('#catDropdown')) toggleCatPanel(false);
+});
+$('catDropdown').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    toggleCatPanel(false);
+    $('catBtn').focus();
+  }
+});
 
 $('categoryToggles').addEventListener('change', e => {
   const value = e.target.value;
@@ -181,9 +203,7 @@ $('categoryToggles').addEventListener('change', e => {
 
 function updateEntity() {
   const type = f.entity_type.value;
-  $('crLabel').textContent = type === 'company' ? 'رقم السجل التجاري'
-    : type === 'freelance' ? 'رقم وثيقة العمل الحر أو شهادة الأسر المنتجة'
-      : 'رقم السجل التجاري أو وثيقة العمل الحر';
+  $('crLabel').textContent = 'السجل التجاري / وثيقة العمل الحر';
 }
 
 function updateRole() {
@@ -516,7 +536,7 @@ form.addEventListener('submit', async e => {
     return formError(`تأكد من حقل: ${label || 'الحقول المطلوبة'}`, invalid);
   }
   if (!chosenCats.length) {
-    return formError('اختر مجال واحد على الأقل لمتجرك.', $('categoryToggles'));
+    return formError('اختر مجال واحد على الأقل لمتجرك.', $('catBtn'));
   }
   const districtRequired = SETTINGS.form.fields.district?.visible !== false && SETTINGS.form.fields.district?.required;
   const missing = locations.findIndex(l => l.lat === null || !l.region || !l.city || (districtRequired && !l.district.trim()));
@@ -539,12 +559,9 @@ form.addEventListener('submit', async e => {
     return formError('اختر خيار توصيل واحد على الأقل.', $('deliveryChecks'));
   }
   const social = name => (shown('socials') ? f[name].value : '');
-  const hasSocial = ['instagram', 'x_handle', 'tiktok', 'snapchat', 'whatsapp'].some(n => social(n).trim());
+  const hasSocial = ['instagram', 'x_handle', 'tiktok', 'snapchat'].some(n => social(n).trim());
   if (needed('socials') && !hasSocial) {
     return formError('أضف حساب تواصل واحد على الأقل.', f.instagram);
-  }
-  if (!f.url.value && !hasSocial) {
-    return formError(shown('socials') ? 'أضف رابط متجرك، أو حساب تواصل واحد على الأقل يوصل له العملاء.' : 'أضف رابط متجرك.', f.url);
   }
   const text = name => (shown(name) ? f[name].value.trim() : '');
 
@@ -561,7 +578,9 @@ form.addEventListener('submit', async e => {
     x_handle: normalizeHandle(social('x_handle')) || null,
     tiktok: normalizeHandle(social('tiktok')) || null,
     snapchat: normalizeHandle(social('snapchat')) || null,
-    whatsapp: normalizePhone(social('whatsapp')) || null,
+    whatsapp: normalizePhone(f.whatsapp.value) || null,
+    store_email: f.store_email.value.trim() || null,
+    has_physical_store: f.physical_store.value === 'yes',
     delivery,
     location_type: 'store',
     locations: locations.map(l => ({
@@ -661,6 +680,8 @@ async function startEdit() {
   form.querySelectorAll('input[name="delivery"]').forEach(c => { c.checked = (s.delivery || []).includes(c.value); });
   for (const name of ['instagram', 'x_handle', 'tiktok', 'snapchat']) f[name].value = s[name] || '';
   f.whatsapp.value = localPhone(s.whatsapp);
+  f.store_email.value = s.store_email || '';
+  if (typeof s.has_physical_store === 'boolean') setChecked('physical_store', s.has_physical_store ? 'yes' : 'no');
   f.approximate.checked = Boolean(s.approximate);
 
   f.owner_name.value = o.owner_name || '';

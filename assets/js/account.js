@@ -203,7 +203,7 @@ function render() {
         </dl>
         ${payments?.length ? `<h3 class="sub-title">مدفوعاتك</h3><ul class="pay-list">${payments.map(p => `
           <li><strong>${formatNumber(Number(p.amount))} ر.س</strong><span>${escapeHtml(formatDate(p.period_start))} ← ${escapeHtml(formatDate(p.period_end))}</span></li>`).join('')}</ul>` : ''}
-        <p class="hint">السداد بحوالة بنكية، ونرسل لك بيانات الحساب على إيميلك قبل موعد الاستحقاق.</p>
+        <p class="hint">تصلك تفاصيل السداد عبر الإيميل قبل موعد الاستحقاق.</p>
       </article>`;
   }
   $('ownerStore').innerHTML = html;

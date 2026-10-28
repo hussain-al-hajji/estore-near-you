@@ -8,7 +8,7 @@ import { createBackend } from './admin-data.js';
 import { createMap, pinIcon } from './map.js';
 import { columnChart, barList, formatNumber, formatCompact } from './charts.js';
 import { billingInfo, BILLING_LABELS, graceRemainingText, fillTemplate, formatDate } from './billing.js';
-import { escapeHtml, safeUrl, safeImage, dayKey, riyadhDay, storeLocations, storeCategories } from './utils.js';
+import { escapeHtml, safeUrl, safeImage, hasPublicAddress, dayKey, riyadhDay, storeLocations, storeCategories } from './utils.js';
 
 const $ = id => document.getElementById(id);
 const backend = await createBackend();
@@ -115,7 +115,16 @@ function billingLine(s) {
   return `<small class="bill bill-${info.key}${info.soon ? ' soon' : ''}">${BILLING_LABELS[info.key].icon} ${info.short}</small>`;
 }
 
-function paymentEmailLink(s) {
+// طرق السداد في الإيميل: حوالة بنكية (إن أُدخلت بياناتها) و/أو رابط فاتورة إلكترونية (يُكتب لكل متجر)، أو الاثنتين
+function paymentDetails(bank, invoice) {
+  const parts = [];
+  if (bank.iban) parts.push(`حوالة بنكية على الحساب التالي:\nالبنك: ${bank.bank_name || '—'}\nاسم المستفيد: ${bank.account_name || '—'}\nرقم الآيبان: ${bank.iban}`);
+  if (invoice) parts.push(`سداد إلكتروني عبر رابط الفاتورة:\n${invoice}`);
+  if (!parts.length) return 'للاستفسار عن طريقة السداد تواصل معنا بالرد على هذا الإيميل.';
+  return parts.length > 1 ? `تقدر تسدد بإحدى الطريقتين:\n\n١) ${parts[0]}\n\n٢) ${parts[1]}` : parts[0];
+}
+
+function paymentEmailLink(s, invoice = '') {
   const email = s.owner?.email;
   if (!email) return null;
   const info = billingInfo(s);
@@ -130,11 +139,14 @@ function paymentEmailLink(s) {
     bank_name: bank.bank_name || '—',
     account_name: bank.account_name || '—',
     iban: bank.iban || '—',
+    invoice_link: invoice || '—',
+    payment_details: paymentDetails(bank, invoice),
   };
   return `mailto:${email}?subject=${encodeURIComponent(fillTemplate(tpl.subject, vars))}&body=${encodeURIComponent(fillTemplate(tpl.body, vars))}`;
 }
 
 const bankMissing = () => !state.adminSettings.bank.iban;
+const invoiceOf = () => ($('invoiceLink')?.value || '').trim();
 
 // ---------- تسجيل الدخول ----------
 
@@ -575,8 +587,9 @@ function subscriptionSection(s) {
         ${infoRow('آخر موعد للسداد', `${formatDate(info.graceEnd)} · ${graceRemainingText(info)}`)}
       </dl>
 
-      ${mail ? `<a class="btn btn-primary btn-sm mail-btn" href="${escapeHtml(mail)}">✉️ إيميل بيانات السداد / تذكير</a>` : ''}
-      ${bankMissing() ? '<p class="hint warn-hint">⚠️ أضف بيانات الحساب البنكي من <a href="#admin/settings">الإعدادات</a> حتى تظهر في الإيميل.</p>' : ''}
+      <label class="field"><span>رابط فاتورة إلكترونية <small>(اختياري، يُضاف للإيميل مع الحوالة أو بدلها)</small></span><input id="invoiceLink" inputmode="url" dir="ltr" placeholder="https://…"></label>
+      ${mail ? `<a class="btn btn-primary btn-sm mail-btn" href="${escapeHtml(mail)}">✉️ إيميل تفاصيل السداد / تذكير</a>` : ''}
+      ${bankMissing() ? '<p class="hint">ℹ️ ما أضفت بيانات الحوالة في <a href="#admin/settings">الإعدادات</a>: يطلع الإيميل بالفاتورة الإلكترونية فقط (إن كتبت رابطها).</p>' : ''}
 
       <div class="sub-box">
         <h4>تسجيل دفعة (حوالة مستلمة)</h4>
@@ -635,6 +648,7 @@ function reportsSection(s) {
     </section>`;
 }
 
+const yesNo = v => (v === true ? 'نعم' : v === false ? 'لا' : null);
 const logoText = v => (v && v.startsWith('data:image/') ? '🖼️ صورة مرفوعة' : v);
 
 function editSection(s) {
@@ -652,6 +666,8 @@ function editSection(s) {
     ['نوع النشاط', ENTITY_TYPES[s.entity_type]?.label, ENTITY_TYPES[d.entity_type]?.label],
     ['النبذة', s.description, d.description],
     ['الوسوم', (s.tags || []).join('، '), (d.tags || []).join('، ')],
+    ['محل فعلي', yesNo(s.has_physical_store), yesNo(d.has_physical_store)],
+    ['إيميل المتجر', s.store_email, d.store_email],
     ['الشعار', logoText(s.logo_url), logoText(d.logo_url)],
     ['التوصيل', list(s.delivery), list(d.delivery)],
     ['انستقرام', s.instagram, d.instagram],
@@ -742,6 +758,7 @@ function openDrawer(id) {
       ${s.status !== 'pending' ? btn('pending', '⏳ إرجاع للمراجعة') : ''}
     </div>
 
+    ${hasPublicAddress(s) ? '' : '<p class="drawer-warn">⚠️ لن يظهر هذا المتجر على الموقع: ما له رابط متجر ولا حساب سوشيال ميديا.</p>'}
     ${reportsSection(s)}
     ${editSection(s)}
     ${subscriptionSection(s)}
@@ -767,6 +784,8 @@ function openDrawer(id) {
       <dl>
         ${infoRow(storeCategories(s).length > 1 ? 'المجالات' : 'المجال', storeCategories(s).map((c, i) => `${i === 0 ? '⭐ ' : ''}${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}`).join('<br>'))}
         ${infoRow('النبذة', escapeHtml(s.description || ''))}
+        ${infoRow('محل فعلي في السوق', yesNo(s.has_physical_store) || 'غير محدد')}
+        ${infoRow('إيميل المتجر', s.store_email ? `<a href="mailto:${escapeHtml(s.store_email)}" dir="ltr">${escapeHtml(s.store_email)}</a>` : '')}
         ${infoRow('الوسوم', (s.tags || []).map(t => `<span class="tag-chip static">${escapeHtml(t)}</span>`).join(' '))}
         ${infoRow('التوصيل', (s.delivery || []).map(d => `${DELIVERY_ICONS[d]} ${DELIVERY[d]}`).join('، '))}
         ${infoRow('التواصل', socials.map(([label, href, text]) => `<a href="${escapeHtml(href)}" target="_blank" rel="noopener">${label}: <span dir="ltr">${escapeHtml(text)}</span></a>`).join('<br>'))}
@@ -826,6 +845,14 @@ function closeDrawer() {
   drawerMap?.remove();
   drawerMap = null;
 }
+
+$('drawer').addEventListener('input', e => {
+  if (e.target.id !== 'invoiceLink') return;
+  const store = state.stores.find(s => s.id === state.openId);
+  const link = store && paymentEmailLink(store, invoiceOf());
+  const btn = document.querySelector('#drawer .mail-btn');
+  if (btn && link) btn.href = link;
+});
 
 $('drawer').addEventListener('click', e => {
   if (e.target.closest('[data-close]')) return closeDrawer();
@@ -936,7 +963,7 @@ function renderSettings() {
     </article>
 
     <article class="panel">
-      <h2>🏦 بيانات الحوالة البنكية <small class="private">🔒 خاصة، لا تظهر في الموقع</small></h2>
+      <h2>🏦 بيانات الحوالة البنكية <small class="private">🔒 خاصة، اختيارية، لا تظهر في الموقع</small></h2>
       <div class="settings-grid">
         <label class="field"><span>اسم البنك</span>${input('bank_name', a.bank.bank_name, 'placeholder="مثال: مصرف الراجحي"')}</label>
         <label class="field"><span>اسم المستفيد</span>${input('account_name', a.bank.account_name)}</label>
@@ -985,6 +1012,7 @@ function renderSettings() {
       <label class="field"><span>شروط الاستخدام <small>(صفحة #terms)</small></span><textarea name="legal_terms" rows="12">${escapeHtml(SETTINGS.legal.terms)}</textarea></label>
       <div class="settings-grid">
         <label class="field"><span>العنوان</span>${input('footer_address', ft.address)}</label>
+        <label class="field"><span>رقم الوثيقة <small>(يظهر في التذييل)</small></span>${input('footer_document', ft.document, 'dir="ltr" maxlength="40"')}</label>
         <label class="field"><span>البريد الإلكتروني</span>${input('footer_email', ft.email, 'type="email" dir="ltr"')}</label>
         <label class="field"><span>واتساب (بالصيغة الدولية)</span>${input('footer_whatsapp', ft.whatsapp, 'dir="ltr" placeholder="9665xxxxxxxx"')}</label>
       </div>
@@ -1061,6 +1089,7 @@ $('settingsForm').addEventListener('submit', async e => {
     footer: {
       about: f.footer_about.value.trim(),
       address: f.footer_address.value.trim(),
+      document: f.footer_document.value.trim(),
       email: f.footer_email.value.trim(),
       whatsapp,
     },

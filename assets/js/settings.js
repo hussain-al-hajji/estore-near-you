@@ -88,7 +88,7 @@ export function graceLabel(days) {
 
 export function pricingText() {
   const p = SETTINGS.pricing;
-  const yearly = `اشتراك سنوي: ${p.price_company} ر.س للشركات والمؤسسات (مهلة السداد ${graceLabel(p.grace_days_company)})، و${p.price_freelance} ر.س للأعمال الحرة والأسر المنتجة (مهلة السداد ${graceLabel(p.grace_days_freelance)}). السداد بحوالة بنكية، ونرسل لك بيانات الحساب على إيميلك.`;
+  const yearly = `اشتراك سنوي: ${p.price_company} ر.س للشركات والمؤسسات (مهلة السداد ${graceLabel(p.grace_days_company)})، و${p.price_freelance} ر.س للأعمال الحرة والأسر المنتجة (مهلة السداد ${graceLabel(p.grace_days_freelance)}). تصلك تفاصيل السداد عبر الإيميل.`;
   return isLaunchPeriod()
     ? `التسجيل مجاني خلال فترة الافتتاح حتى ${formatDate(p.launch_end)}، وبعدها ${yearly}`
     : `${yearly} يبدأ الاشتراك من يوم التسجيل.`;

@@ -35,6 +35,11 @@ export function renderFooters() {
       addr.append(el('span', { class: 'footer-icon', html: PIN_ICON }), el('span', { text: f.address }));
       contacts.append(addr);
     }
+    if (f.document) {
+      const doc = el('span', { class: 'footer-contact' });
+      doc.append(el('span', { text: `رقم الوثيقة: ${f.document}` }));
+      contacts.append(doc);
+    }
     const icons = el('div', { class: 'footer-icons' });
     if (email) icons.append(contactIcon(`mailto:${email}`, MAIL_ICON, 'راسلنا على الإيميل'));
     if (wa) icons.append(contactIcon(`https://wa.me/${wa}`, WA_ICON, 'تواصل معنا على واتساب'));

@@ -1,6 +1,6 @@
 // نفس منطق دالة البحث في قاعدة البيانات (search_stores) لكن داخل المتصفح:
 // يُستخدم في الوضع التجريبي، وكاحتياط إذا لم تُشغَّل ملفات الترحيل الجديدة بعد
-import { haversineKm, storeLocations, storeCategories } from './utils.js';
+import { haversineKm, storeLocations, storeCategories, hasPublicAddress } from './utils.js';
 import { normalize } from './intent.js';
 
 export const PAGE_SIZE = 30;
@@ -61,7 +61,7 @@ function docOf(s, locs, cats) {
 
 export function searchLocal(stores, p = {}) {
   if (p.id) {
-    const s = stores.find(x => String(x.id) === String(p.id) && !x.pending);
+    const s = stores.find(x => String(x.id) === String(p.id) && !x.pending && hasPublicAddress(x));
     return { total: s ? 1 : 0, page_size: PAGE_SIZE, max_offset: 0, relaxed: false, stores: s ? [s] : [], cities: [] };
   }
   const terms = (p.terms ? p.terms : (p.q || '').trim() ? [[p.q.trim().slice(0, 60)]] : [])
@@ -70,6 +70,7 @@ export function searchLocal(stores, p = {}) {
   const boost = new Set(p.boost || []);
   const rows = [];
   for (const s of stores) {
+    if (!hasPublicAddress(s)) continue;
     if (p.entity && s.entity_type !== p.entity) continue;
     const cats = storeCategories(s);
     if (p.category && !cats.includes(p.category)) continue;

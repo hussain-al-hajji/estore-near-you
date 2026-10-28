@@ -174,11 +174,11 @@
             <div class="entity-cards" role="radiogroup" aria-label="نوع النشاط">
               <label class="entity-card">
                 <input type="radio" name="entity_type" value="company" required>
-                <span class="entity-body"><span class="entity-icon">🏢</span><strong>شركة / مؤسسة</strong><small data-price="company"></small></span>
+                <span class="entity-body"><span class="entity-icon">🏢</span><strong>شركة / مؤسسة</strong><small data-price="company"></small><span class="launch-tag" data-launch hidden></span></span>
               </label>
               <label class="entity-card">
                 <input type="radio" name="entity_type" value="freelance" required>
-                <span class="entity-body"><span class="entity-icon">🏠</span><strong>عمل حر / أسر منتجة</strong><small data-price="freelance"></small></span>
+                <span class="entity-body"><span class="entity-icon">🏠</span><strong>عمل حر / أسر منتجة</strong><small data-price="freelance"></small><span class="launch-tag" data-launch hidden></span></span>
               </label>
             </div>
             <p class="pricing-note" id="pricingNote"></p>
@@ -189,10 +189,13 @@
               <span>اسم المتجر <b>*</b></span>
               <input name="name" required minlength="2" maxlength="80" autocomplete="organization" placeholder="مثال: حلويات بيت الجدة">
             </label>
-            <label class="field">
-              <span>رابط المتجر <small>(إن وجد)</small></span>
-              <input name="url" inputmode="url" placeholder="mystore.com أو رابط سلة/زد" dir="ltr">
-            </label>
+            <div class="field" id="physicalField">
+              <span>هل لديك محل فعلي في السوق؟ <b>*</b></span>
+              <div class="segmented" role="radiogroup" aria-label="محل فعلي">
+                <label><input type="radio" name="physical_store" value="yes" required><span>🏬 نعم</span></label>
+                <label><input type="radio" name="physical_store" value="no"><span>🌐 لا، إلكتروني فقط</span></label>
+              </div>
+            </div>
             <div class="field" data-field="logo_url" id="logoField">
               <span>شعار المتجر <small class="opt">(اختياري)</small></span>
               <div class="logo-pick">
@@ -208,7 +211,12 @@
             </div>
             <div class="field full" id="categoryField">
               <span>مجالات المتجر <b>*</b> <small>اختر من 1 إلى 5، وأول اختيار هو مجالك الرئيسي ⭐</small></span>
-              <div class="toggles cat-toggles" id="categoryToggles" role="group" aria-label="مجالات المتجر"></div>
+              <div class="cat-dropdown" id="catDropdown">
+                <button type="button" class="cat-btn" id="catBtn" aria-haspopup="true" aria-expanded="false">
+                  <span id="catSummary" class="cat-summary">اختر مجالات متجرك…</span><span class="cat-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="cat-panel" id="categoryToggles" role="group" aria-label="مجالات المتجر" hidden></div>
+              </div>
             </div>
             <div class="field full" id="tagsField">
               <span>كلمات تساعد الناس يلقونك <small class="opt">(وسوم، اختياري)</small></span>
@@ -216,7 +224,7 @@
                 <span class="tag-list" id="tagList"></span>
                 <input id="tagInput" maxlength="30" placeholder="مثال: بخور، عود، دهن عود" autocomplete="off" aria-label="أضف وسمًا">
               </div>
-              <small class="hint-sm">اكتب الكلمة ثم Enter أو فاصلة، حتى 10 كلمات. لو تبيع عطور مثلًا اكتب: بخور، عود، مسك، فيطلع متجرك لمن يبحث عنها.</small>
+              <small class="hint-sm">اكتب الكلمة ثم Enter أو فاصلة، حتى 20 كلمة. لو تبيع عطور مثلًا اكتب: بخور، عود، مسك، فيطلع متجرك لمن يبحث عنها.</small>
             </div>
             <label class="field full" data-field="description">
               <span>نبذة عن المتجر <small class="opt">(اختياري)</small></span>
@@ -229,15 +237,27 @@
             <div class="toggles" id="deliveryChecks"></div>
           </div>
 
-          <div class="field full socials-block" data-field="socials">
-            <span>حسابات التواصل <small class="opt">(اختياري)</small></span>
-            <p class="hint">ما عندك متجر إلكتروني؟ عادي 👌 أضف حساب تواصل واحد على الأقل يوصل له عملاؤك، ويظهر ضمن معلومات متجرك.</p>
+          <div class="field full addresses-block">
+            <span>عناوين المتجر <small class="note-public">(ستظهر للجمهور)</small></span>
+            <p class="hint">كلها اختيارية، أضف اللي عندك.</p>
             <div class="grid">
+              <label class="field span-all"><span>رابط المتجر</span><input name="url" inputmode="url" placeholder="mystore.com أو رابط سلة/زد" dir="ltr"></label>
+            </div>
+            <div class="grid socials-grid" data-field="socials">
+              <small class="opt" hidden></small>
               <label class="field"><span>انستقرام</span><input name="instagram" placeholder="@mystore" dir="ltr"></label>
               <label class="field"><span>سناب شات</span><input name="snapchat" placeholder="mystore" dir="ltr"></label>
               <label class="field"><span>تيك توك</span><input name="tiktok" placeholder="@mystore" dir="ltr"></label>
               <label class="field"><span>إكس</span><input name="x_handle" placeholder="@mystore" dir="ltr"></label>
-              <label class="field"><span>واتساب المتجر</span><input name="whatsapp" inputmode="tel" placeholder="05xxxxxxxx" dir="ltr"></label>
+            </div>
+            <p class="notice warn">⚠️ عند عدم وجود رابط متجر أو حساب سوشيال ميديا واحد على الأقل مخصص للمتجر، لن يظهر المتجر على الموقع.</p>
+          </div>
+
+          <div class="field full contact-block">
+            <span>بيانات التواصل مع المتجر <small>(إيميل / واتساب)</small></span>
+            <div class="grid">
+              <label class="field"><span>واتساب المتجر <small class="opt">(يظهر للزوار)</small></span><input name="whatsapp" inputmode="tel" placeholder="05xxxxxxxx" dir="ltr"></label>
+              <label class="field"><span>إيميل المتجر <small class="opt">(للمنصة فقط، لا يظهر للزوار)</small></span><input name="store_email" type="email" maxlength="120" dir="ltr" autocomplete="off"></label>
             </div>
           </div>
         </fieldset>
@@ -313,7 +333,7 @@
               <input name="email" type="email" required autocomplete="email" dir="ltr">
             </label>
             <label class="field" data-field="cr_number">
-              <span><span id="crLabel">رقم السجل التجاري أو وثيقة العمل الحر</span> <small class="opt">(اختياري)</small></span>
+              <span><span id="crLabel">السجل التجاري / وثيقة العمل الحر</span> <small class="opt">(اختياري)</small></span>
               <input name="cr_number" maxlength="30" dir="ltr">
             </label>
           </div>

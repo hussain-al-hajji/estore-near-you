@@ -6,6 +6,9 @@ export function escapeHtml(value) {
   })[c]);
 }
 
+// المتجر يظهر للزوار فقط إذا له رابط أو حساب سوشيال ميديا (الواتساب وحده لا يكفي)
+export const hasPublicAddress = s => Boolean(s.url || s.instagram || s.snapchat || s.tiktok || s.x_handle);
+
 // مصدر صورة الشعار: رابط http/https، أو صورة مصغّرة مرفوعة (data:image) بصيغ مضغوطة فقط
 export function safeImage(value) {
   if (typeof value === 'string' && /^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(value) && value.length <= 12000) return value;

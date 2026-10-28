@@ -244,6 +244,7 @@ function cardHtml(s) {
       <p class="tags">
         ${s.cats.map(c => `<span class="tag">${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span>`).join('')}
         ${ENTITY_TYPES[s.entity_type] ? `<span class="tag tag-entity">${ENTITY_TYPES[s.entity_type].icon} ${ENTITY_TYPES[s.entity_type].label}</span>` : ''}
+        ${s.has_physical_store === true ? '<span class="tag">🏬 له محل فعلي</span>' : ''}
         ${s.approximate ? '<span class="tag">📍 موقع تقريبي</span>' : ''}
       </p>
       ${s.description ? `<p class="desc">${escapeHtml(s.description)}</p>` : ''}
