@@ -243,7 +243,7 @@ export async function getPinnedStores(region) {
 async function ensureAccount(sb, account) {
   const { data: current } = await sb.auth.getSession();
   if (current.session) return current.session;
-  if (!account) throw new Error('أنشئ حساب الدخول لمتجرك أولًا.');
+  if (!account) throw new Error('أنشئ حسابك على منصة دكان الحي أولًا.');
   let { data, error } = await sb.auth.signUp({ email: account.email, password: account.password });
   if (error && /already registered|already exists/i.test(error.message)) {
     ({ data, error } = await sb.auth.signInWithPassword({ email: account.email, password: account.password }));
