@@ -399,7 +399,17 @@ function showBanner(i) {
 
 function renderBanner(b) {
   const link = safeUrl(b.link_url);
-  const image = b.image_url && safeUrl(b.image_url);
+  const image = b.image_url && safeImage(b.image_url);
+  // بنر صورة فقط (من طلب صاحب متجر): الصورة تملأ المساحة
+  if (b.image_only && image) {
+    const pic = `<img class="ad-full" src="${escapeHtml(image)}" alt="${escapeHtml(b.title)}" loading="lazy" referrerpolicy="no-referrer"><small class="ad-tag">إعلان</small>`;
+    els.banner.className = 'ad-banner ad-imageonly';
+    els.banner.innerHTML = link
+      ? `<a href="${escapeHtml(link)}" target="_blank" rel="sponsored noopener" data-banner="${escapeHtml(String(b.id))}">${pic}</a>`
+      : `<div class="ad-static">${pic}</div>`;
+    els.banner.hidden = false;
+    return;
+  }
   const inner = `${image ? `<img src="${escapeHtml(image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}
     <span class="ad-text"><small class="ad-tag">إعلان</small><strong>${escapeHtml(b.title)}</strong>${b.body ? `<span>${escapeHtml(b.body)}</span>` : ''}</span>
     ${link && b.button_label ? `<span class="ad-btn">${escapeHtml(b.button_label)}</span>` : ''}`;

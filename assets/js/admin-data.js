@@ -1,3 +1,4 @@
+import { demoAdminAds, demoAdReply } from './ads-demo.js';
 import { isDemo, demoAllStores, DEMO_KEYS, demoPerformance, demoApplyEdit, demoBannerList, demoPinList } from './api.js';
 import { getClient, authErrorMessage } from './supabase-client.js';
 import { storage, dayKey } from './utils.js';
@@ -56,6 +57,11 @@ function liveBackend(sb) {
       .order('created_at', { ascending: false }).limit(300)),
     setMessageStatus: async (id, status) => { check(await sb.from('contact_messages').update({ status }).eq('id', id)); },
     deleteMessage: async id => { check(await sb.from('contact_messages').delete().eq('id', id)); },
+    adRequests: async () => check(await sb.from('ad_requests').select('*, ad_request_messages(*), stores(name, city)')
+      .order('created_at', { ascending: false }).limit(500)).map(r => ({
+      ...r, messages: (r.ad_request_messages || []).sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id - b.id),
+    })),
+    adReply: async (id, action, body) => check(await sb.rpc('admin_ad_reply', { p_id: id, p_action: action, p_body: body || null })),
     pins: async () => check(await sb.from('pinned_stores').select('*').order('created_at', { ascending: false })),
     async savePin({ id, ...fields }) {
       if (id) check(await sb.from('pinned_stores').update(fields).eq('id', id));
@@ -202,6 +208,8 @@ function demoBackend() {
     async deleteMessage(id) {
       storage(DEMO_KEYS.messages, (await this.messages()).filter(x => x.id !== id));
     },
+    adRequests: demoAdminAds,
+    adReply: demoAdReply,
     pins: async () => [...demoPinList()].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     async savePin({ id, ...fields }) {
       const list = demoPinList();

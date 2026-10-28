@@ -5,6 +5,7 @@ import {
 import { DEFAULT_SETTINGS, DEFAULT_ADMIN_SETTINGS } from './default-settings.js';
 import { renderFooters } from './footer.js';
 import { createBackend } from './admin-data.js';
+import { initAdRequests, load as loadAdRequests } from './admin-ads.js';
 import { createMap, pinIcon } from './map.js';
 import { columnChart, barList, formatNumber, formatCompact } from './charts.js';
 import { billingInfo, BILLING_LABELS, graceRemainingText, fillTemplate, formatDate } from './billing.js';
@@ -214,6 +215,7 @@ async function loadAll() {
       backend.messages().catch(() => []),
     ]);
     state.messages = messages;
+    loadAdRequests();
     state.stores = stores;
     state.payments = payments;
     state.edits = edits;
@@ -964,6 +966,12 @@ function renderSettings() {
         <label class="field"><span>مهلة السداد للأعمال الحرة (أيام)</span>${input('grace_days_freelance', p.grace_days_freelance, 'type="number" min="0" required dir="ltr"')}</label>
       </div>
       <p class="hint">30 يوم = شهر · 120 يوم = 4 شهور. الاشتراك يبدأ من يوم التسجيل، ولمن سجّل خلال فترة الافتتاح من نهايتها.</p>
+      <h3 class="sub-title">📣 تسعير الإعلانات (ر.س لليوم)</h3>
+      <div class="settings-grid">
+        <label class="field"><span>المنطقة الأولى</span>${input('ad_first', SETTINGS.ads.first_region, 'type="number" min="0" required dir="ltr"')}</label>
+        <label class="field"><span>كل منطقة إضافية</span>${input('ad_extra', SETTINGS.ads.extra_region, 'type="number" min="0" required dir="ltr"')}</label>
+      </div>
+      <p class="hint">يظهر لصاحب المتجر وهو يعبّي طلب الإعلان: عدد الأيام × (سعر المنطقة الأولى + سعر كل منطقة إضافية).</p>
     </article>
 
     <article class="panel">
@@ -1070,6 +1078,7 @@ $('settingsForm').addEventListener('submit', async e => {
       grace_days_company: num('grace_days_company'),
       grace_days_freelance: num('grace_days_freelance'),
     },
+    ads: { first_region: Number(f.ad_first.value) || 0, extra_region: Number(f.ad_extra.value) || 0 },
     form: {
       title: f.form_title.value.trim() || DEFAULT_SETTINGS.form.title,
       subtitle: f.form_subtitle.value.trim(),
@@ -1191,7 +1200,8 @@ function daysBetweenKeys(a, b) {
 
 function bannerPreviewHtml(b) {
   const link = safeUrl(b.link_url);
-  const image = b.image_url && safeUrl(b.image_url);
+  const image = b.image_url && safeImage(b.image_url);
+  if (b.image_only && image) return `<div class="ad-banner ad-imageonly"><div class="ad-static"><img class="ad-full" src="${escapeHtml(image)}" alt=""><small class="ad-tag">إعلان</small></div></div>`;
   const theme = BANNER_THEMES[b.theme] ? b.theme : 'violet';
   return `<div class="ad-banner ad-${theme}"><div class="ad-static">
     ${image ? `<img src="${escapeHtml(image)}" alt="" referrerpolicy="no-referrer">` : ''}
@@ -1532,6 +1542,8 @@ $('pinList').addEventListener('click', async e => {
   }
 });
 
+initAdRequests({ backend, toast: ({ message, kind }) => toast(message, kind), getBank: () => state.adminSettings.bank });
+
 // ---------- رسائل «راسلنا» ----------
 
 const MSG_STATUS = { new: { label: '🆕 جديدة', cls: 'wait' }, read: { label: '👁 مقروءة', cls: 'off' }, done: { label: '✅ تمت المعالجة', cls: 'on' } };
@@ -1595,7 +1607,7 @@ $('messageList').addEventListener('click', async e => {
 
 // ---------- التنقل ----------
 
-const TABS = { '#admin/messages': 'messages', '#admin/stores': 'stores', '#admin/banners': 'banners', '#admin/settings': 'settings' };
+const TABS = { '#admin/ads': 'ads', '#admin/messages': 'messages', '#admin/stores': 'stores', '#admin/banners': 'banners', '#admin/settings': 'settings' };
 
 function route() {
   if (!location.hash.startsWith('#admin')) return;
@@ -1606,6 +1618,7 @@ function route() {
     t.setAttribute('aria-selected', String(t.dataset.tab === tab));
   });
   if (tab === 'banners' && !$('appView').hidden) loadBanners();
+  if (tab === 'ads' && !$('appView').hidden) loadAdRequests();
 }
 window.addEventListener('hashchange', route);
 

@@ -381,3 +381,30 @@ small.bill { display: block; width: fit-content; margin-top: 4px; }
 .msg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .msg-head small { margin-inline-start: auto; }
 .msg-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
+
+/* ---------- طلبات الإعلانات: التقويم والمحادثة ---------- */
+.cal-nav { display: flex; align-items: center; gap: 10px; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.cal-legend .lg { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-inline-end: 4px; }
+.cal-wrap { overflow-x: auto; }
+.cal-table { border-collapse: separate; border-spacing: 2px; font-size: 11px; }
+.cal-table th { font-weight: 500; color: var(--muted); padding: 2px 0; min-width: 24px; }
+.cal-table th.cal-region { text-align: start; white-space: nowrap; padding-inline-end: 10px; font-size: 12.5px; color: var(--ink); position: sticky; inset-inline-start: 0; background: var(--card); }
+.cal-table .cal-today { color: var(--violet); font-weight: 700; }
+.cal-cell { height: 24px; min-width: 24px; border-radius: 5px; background: var(--bg); text-align: center; font-weight: 700; color: #fff; cursor: pointer; }
+.cal-cell.cal-today { background: #ece6ff; }
+.c-paid { background: #5fb300 !important; }
+.c-approved { background: #2f8fe0 !important; }
+.c-pending { background: repeating-linear-gradient(45deg, #f0c24f, #f0c24f 4px, #fbe4a6 4px, #fbe4a6 8px) !important; color: #6b4a00 !important; }
+.c-overlap { outline: 2px solid var(--coral); outline-offset: -1px; }
+.cell-detail { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.cell-req { border: 2px solid var(--line); background: var(--card); border-radius: 12px; padding: 6px 12px; cursor: pointer; font: inherit; }
+.cell-req:hover { border-color: var(--violet); }
+.ad-row { cursor: pointer; }
+.ad-row:hover { outline: 2px solid var(--violet); }
+.ad-last { margin: 0; font-size: 13.5px; }
+.conflict-tag { color: #b3321b; font-weight: 600; }
+.ad-req-dialog { padding: 18px 20px 20px; display: grid; gap: 12px; }
+.ad-actions-box { background: var(--bg); border-radius: 16px; padding: 12px 14px; display: grid; gap: 10px; }
+.ad-actions-box h4 { margin: 0; }
+.notice.warn ul { margin: 6px 0 0; padding-inline-start: 18px; }

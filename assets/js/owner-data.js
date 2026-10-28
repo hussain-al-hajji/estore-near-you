@@ -2,6 +2,7 @@
 import { isDemo, demoAllStores, DEMO_KEYS, demoPerformance } from './api.js';
 import { getClient, authErrorMessage } from './supabase-client.js';
 import { storage } from './utils.js';
+import { demoOwnerAds, demoSubmitAd, demoUpdateAd, demoAdMessage, demoCancelAd } from './ads-demo.js';
 
 export async function createOwnerBackend() {
   return isDemo ? demoBackend() : liveBackend(await getClient());
@@ -27,6 +28,17 @@ function liveBackend(sb) {
     dashboard: async () => check(await sb.rpc('owner_dashboard')) || [],
     performance: async (id, days) => check(await sb.rpc('store_performance', { p_store: id, p_days: days })),
     submitEdit: async (id, data) => check(await sb.rpc('owner_submit_edit', { p_store: id, p_data: data })),
+    ads: async storeId => check(await sb.rpc('owner_ads', { p_store: storeId })) || [],
+    submitAd: async (storeId, d) => check(await sb.rpc('owner_submit_ad', {
+      p_store: storeId, p_kind: d.kind, p_regions: d.regions, p_starts: d.starts_on, p_days: d.days,
+      p_link: d.link_url || null, p_image: d.image || null, p_note: d.note || null,
+    })),
+    updateAd: async (id, d) => check(await sb.rpc('owner_update_ad', {
+      p_id: id, p_kind: d.kind, p_regions: d.regions, p_starts: d.starts_on, p_days: d.days,
+      p_link: d.link_url || null, p_image: d.image || null, p_note: d.note || null,
+    })),
+    adMessage: async (id, body) => check(await sb.rpc('owner_ad_message', { p_id: id, p_body: body })),
+    cancelAd: async id => check(await sb.rpc('owner_cancel_ad', { p_id: id })),
     async resetPassword(email) {
       const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}${location.pathname}#account` });
       if (error) throw new Error(authErrorMessage(error.message));
@@ -82,6 +94,11 @@ function demoBackend() {
         }));
     },
     performance: async (id, days) => demoPerformance(id, days),
+    ads: demoOwnerAds,
+    submitAd: demoSubmitAd,
+    updateAd: demoUpdateAd,
+    adMessage: demoAdMessage,
+    cancelAd: demoCancelAd,
     async submitEdit(id, data) {
       const [item] = (await this.dashboard()).filter(x => x.store.id === id);
       if (!item) throw new Error('غير مصرح');

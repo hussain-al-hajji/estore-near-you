@@ -4,6 +4,7 @@ import { createOwnerBackend } from './owner-data.js';
 import { columnChart, barList, formatNumber, formatCompact } from './charts.js';
 import { billingInfo, BILLING_LABELS, formatDate } from './billing.js';
 import { escapeHtml, storage, storeCategories } from './utils.js';
+import { adsPanelHtml, mountAds } from './owner-ads.js';
 
 const $ = id => document.getElementById(id);
 const backend = await createOwnerBackend();
@@ -193,6 +194,8 @@ function render() {
         <p class="hint">أي تعديل يطلع على المنصة بعد مراجعته من فريق دكان الحي.</p>
       </article>
 
+      ${s.status === 'approved' ? adsPanelHtml() : ''}
+
       <article class="panel">
         <h2>💳 اشتراكك السنوي</h2>
         <p><span class="bill bill-${info.key}${info.soon ? ' soon' : ''}">${BILLING_LABELS[info.key].icon} ${BILLING_LABELS[info.key].label} · ${info.short}</span></p>
@@ -208,6 +211,9 @@ function render() {
   }
   $('ownerStore').innerHTML = html;
   if (active) loadPerformance(s.id);
+  if (s.status === 'approved') {
+    mountAds({ backend, store: s, onChange: message => { const t = $('ownerTooltip'); t.textContent = message; t.hidden = false; clearTimeout(render.timer); render.timer = setTimeout(() => { t.hidden = true; }, 3500); } });
+  }
 }
 
 async function loadPerformance(id) {

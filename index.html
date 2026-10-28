@@ -501,6 +501,7 @@
         <nav class="tabs" role="tablist">
           <a href="#admin/overview" class="tab" data-tab="overview" role="tab">📊 نظرة عامة</a>
           <a href="#admin/stores" class="tab" data-tab="stores" role="tab">🏪 المتاجر <span class="count-badge" id="pendingBadge" hidden></span></a>
+          <a href="#admin/ads" class="tab" data-tab="ads" role="tab">📅 طلبات الإعلانات <span class="count-badge" id="adReqBadge" hidden></span></a>
           <a href="#admin/messages" class="tab" data-tab="messages" role="tab">📩 الرسائل <span class="count-badge" id="msgBadge" hidden></span></a>
           <a href="#admin/banners" class="tab" data-tab="banners" role="tab">📣 الإعلانات</a>
           <a href="#admin/settings" class="tab" data-tab="settings" role="tab">⚙️ الإعدادات</a>
@@ -612,6 +613,33 @@
         </div>
       </section>
 
+      <!-- طلبات الإعلانات -->
+      <section class="view" id="adminAds" data-tab="ads" hidden>
+        <div class="view-head">
+          <div>
+            <h1>طلبات الإعلانات</h1>
+            <p class="muted">طلبات أصحاب المتاجر (بنر أو تثبيت بطاقة)، وتقويم يبيّن التداخل بين الطلبات</p>
+          </div>
+        </div>
+        <article class="panel">
+          <div class="panel-head">
+            <h2>📅 التقويم حسب المنطقة</h2>
+            <div class="cal-nav"><button type="button" class="btn btn-ghost btn-sm" id="adMonthPrev" aria-label="الشهر السابق">→</button><strong id="adMonthLabel"></strong><button type="button" class="btn btn-ghost btn-sm" id="adMonthNext" aria-label="الشهر التالي">←</button></div>
+          </div>
+          <div class="cal-legend"><span><i class="lg c-paid"></i> مدفوع ومجدول</span><span><i class="lg c-approved"></i> معتمد بانتظار السداد</span><span><i class="lg c-pending"></i> لم يُعتمد بعد</span><span><i class="lg c-overlap"></i> تداخل (الرقم = عدد الطلبات)</span></div>
+          <div class="table-wrap cal-wrap" id="adCalendar"></div>
+          <div class="cell-detail" id="adCellDetail"><span class="muted">اضغط على أي خلية لعرض الطلبات في ذلك اليوم والمنطقة.</span></div>
+        </article>
+        <div class="view-head sub-head">
+          <h2>الطلبات</h2>
+          <div class="segmented range" role="radiogroup" aria-label="تصفية الطلبات">
+            <label><input type="radio" name="adFilter" value="action" checked><span>تحتاج إجراء</span></label>
+            <label><input type="radio" name="adFilter" value="all"><span>الكل</span></label>
+          </div>
+        </div>
+        <div class="banner-list" id="adReqList"></div>
+      </section>
+
       <!-- الرسائل -->
       <section class="view" id="adminMessages" data-tab="messages" hidden>
         <div class="view-head">
@@ -714,6 +742,10 @@
       </form>
     </dialog>
 
+    <dialog class="banner-dialog" id="adReqDialog" aria-label="طلب إعلان">
+      <div class="ad-req-dialog" id="adReqBody"></div>
+    </dialog>
+
     <dialog class="banner-dialog" id="pinDialog" aria-labelledby="pinDialogTitle">
       <form id="pinForm" novalidate>
         <header class="bd-head">
@@ -765,6 +797,53 @@
     <div class="tooltip" id="tooltip" role="status" hidden></div>
     <div class="toast" id="toast" role="status" hidden></div>
   </div>
+
+  <dialog class="report-dialog ad-dialog" id="adDialog" aria-labelledby="adDialogTitle">
+    <form id="adForm" novalidate>
+      <button type="button" class="close" data-close aria-label="إغلاق">✕</button>
+      <div class="report-body">
+        <h2 id="adDialogTitle">طلب إعلان جديد</h2>
+        <fieldset class="ad-kinds">
+          <legend class="sr-only">نوع الإعلان</legend>
+          <label class="entity-card"><input type="radio" name="kind" value="banner" checked>
+            <span class="entity-body"><span class="entity-icon">🖼️</span><strong>بنر بصورة</strong><small>صورتك تظهر تحت الخريطة مع رابط متجرك</small></span></label>
+          <label class="entity-card"><input type="radio" name="kind" value="pin">
+            <span class="entity-body"><span class="entity-icon">📌</span><strong>تثبيت بطاقة المتجر</strong><small>بطاقة متجرك في أعلى القائمة</small></span></label>
+        </fieldset>
+        <div class="field">
+          <span>المناطق <small>(اختر منطقة أو أكثر)</small></span>
+          <div class="toggles" id="adRegions"></div>
+        </div>
+        <div class="bd-grid">
+          <label class="field"><span>تاريخ البداية</span><input type="date" name="starts_on" required dir="ltr"></label>
+          <label class="field"><span>عدد الأيام</span><input type="number" name="days" min="1" max="365" required dir="ltr"></label>
+        </div>
+        <div class="bd-quick" id="adQuick" role="group" aria-label="مدة سريعة">
+          <span class="muted">المدة:</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="7">أسبوع</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="14">أسبوعين</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-days="30">شهر</button>
+        </div>
+        <div data-for="banner">
+          <div class="field">
+            <span>صورة البنر</span>
+            <div class="logo-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="adImageBtn">🖼️ ارفع صورة البنر</button>
+              <input type="file" id="adImageFile" accept="image/*" hidden>
+            </div>
+            <small class="hint-sm" id="adImageNote">صورة عريضة (مثلًا 1200×375)، وتُصغَّر تلقائيًا قبل الإرسال.</small>
+          </div>
+          <label class="field"><span>رابط الإعلان <small>(يفتح عند الضغط، افتراضيًا رابط متجرك)</small></span><input name="link_url" inputmode="url" dir="ltr" placeholder="https://…"></label>
+        </div>
+        <label class="field"><span>ملاحظة للإدارة <small>(اختياري)</small></span><textarea name="note" rows="2" maxlength="500"></textarea></label>
+        <div class="ad-cost" id="adCost" aria-live="polite"></div>
+        <div class="ad-preview" id="adPreview"></div>
+        <p class="error" id="adError" hidden></p>
+        <button type="submit" class="btn btn-primary" id="adSubmit">أرسل الطلب</button>
+        <p class="hint">الإدارة تراجع الطلب وترد عليك هنا بالموافقة وتفاصيل السداد، أو بطلب تعديل الموعد.</p>
+      </div>
+    </form>
+  </dialog>
 
   <dialog class="report-dialog" id="contactDialog" aria-labelledby="contactTitle">
     <form id="contactForm" novalidate>

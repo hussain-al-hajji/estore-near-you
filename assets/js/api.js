@@ -19,6 +19,7 @@ const DEMO = {
   reports: 'dukkan.demoReports',
   banners: 'dukkan.demoBanners',
   pins: 'dukkan.demoPins',
+  ads: 'dukkan.demoAds',
   messages: 'dukkan.demoMessages',
 };
 
