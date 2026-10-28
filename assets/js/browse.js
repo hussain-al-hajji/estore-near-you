@@ -733,7 +733,14 @@ els.nearMe.addEventListener('click', async () => {
   els.nearMe.textContent = 'جارٍ تحديد موقعك…';
   showGeoNote('📡 نحدد موقعك بدقة، لحظات…');
   try {
-    const best = await locate({ onUpdate: p => setUserLocation(p) });
+    // القراءات التقريبية الأولى (من الشبكة/IP) قد تبعد عشرات الكيلومترات، فلا نبحث بها؛ ننتظر قراءة أدق
+    let applied = false;
+    const best = await locate({
+      timeout: 20000,
+      goodEnough: 100,
+      onUpdate: p => { if (p.accuracy <= 3000) { applied = true; setUserLocation(p); } },
+    });
+    if (!applied) await setUserLocation(best);
     els.nearMe.classList.add('active');
     if (best.accuracy > 1500) {
       showGeoNote(`⚠️ موقعك تقريبي (${accuracyLabel(best.accuracy)}). اسحب النقطة الزرقاء لمكانك الصحيح، أو جرّب من الجوال مع تشغيل الـ GPS.`, 'warn');
