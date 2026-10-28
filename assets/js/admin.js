@@ -1,4 +1,4 @@
-import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS } from './constants.js';
+import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS, CONTACT_TOPICS } from './constants.js';
 import {
   CATEGORIES, CATEGORY_ICONS, SETTINGS, ENTITY_TYPES, REGISTRANT_ROLES, applySettings, deepMerge, graceLabel,
 } from './settings.js';
@@ -38,6 +38,7 @@ const state = {
   edits: [],
   reports: [],
   pins: [],
+  messages: [],
   banners: [],
   bannerTotals: new Map(),
   adminSettings: structuredClone(DEFAULT_ADMIN_SETTINGS),
@@ -206,11 +207,13 @@ $('logoutBtn').addEventListener('click', async () => {
 async function loadAll() {
   document.body.classList.add('loading');
   try {
-    const [stores, stats, payments, adminSettings, edits, reports] = await Promise.all([
+    const [stores, stats, payments, adminSettings, edits, reports, messages] = await Promise.all([
       backend.stores(), backend.eventStats(state.range * 2), backend.payments(), backend.adminSettings(),
       backend.edits().catch(() => []),
       backend.reports().catch(() => []),
+      backend.messages().catch(() => []),
     ]);
+    state.messages = messages;
     state.stores = stores;
     state.payments = payments;
     state.edits = edits;
@@ -252,6 +255,7 @@ function renderAll() {
   $('pendingBadge').hidden = !pending;
   renderOverview();
   renderTable();
+  renderMessages();
 }
 
 // ---------- نظرة عامة ----------
@@ -1528,9 +1532,70 @@ $('pinList').addEventListener('click', async e => {
   }
 });
 
+// ---------- رسائل «راسلنا» ----------
+
+const MSG_STATUS = { new: { label: '🆕 جديدة', cls: 'wait' }, read: { label: '👁 مقروءة', cls: 'off' }, done: { label: '✅ تمت المعالجة', cls: 'on' } };
+
+function renderMessages() {
+  const open = state.messages.filter(m => m.status !== 'done').length;
+  const fresh = state.messages.filter(m => m.status === 'new').length;
+  $('msgBadge').textContent = fresh;
+  $('msgBadge').hidden = !fresh;
+  const filter = document.querySelector('input[name="msgFilter"]:checked')?.value || 'open';
+  const list = filter === 'all' ? state.messages : state.messages.filter(m => m.status !== 'done');
+  if (!list.length) {
+    $('messageList').innerHTML = `<div class="status"><span class="big">📭</span><strong>${state.messages.length ? 'ما فيه رسائل غير معالجة' : 'ما وصلت رسائل بعد'}</strong>${open ? '' : '<span class="muted">كل شي تمت معالجته 👌</span>'}</div>`;
+    return;
+  }
+  $('messageList').innerHTML = list.map(m => {
+    const st = MSG_STATUS[m.status] || MSG_STATUS.new;
+    const phone = m.phone ? localPhone(m.phone) : '';
+    return `<article class="banner-card msg-card" data-id="${escapeHtml(String(m.id))}">
+      <div class="msg-head">
+        <strong>${escapeHtml(m.name)}</strong>
+        <span class="status-pill banner-${st.cls}">${st.label}</span>
+        <span class="tag-chip static">${escapeHtml(CONTACT_TOPICS[m.topic] || m.topic)}</span>
+        <small class="muted" title="${escapeHtml(DATETIME.format(new Date(m.created_at)))}">${relative(m.created_at)}</small>
+      </div>
+      <p class="msg-body">${escapeHtml(m.message)}</p>
+      <div class="banner-meta">
+        ${m.email ? `<a href="mailto:${escapeHtml(m.email)}?subject=${encodeURIComponent('رد من دكان الحي')}" dir="ltr">✉️ ${escapeHtml(m.email)}</a>` : ''}
+        ${m.phone ? `<a href="https://wa.me/${escapeHtml(m.phone)}" target="_blank" rel="noopener" dir="ltr">💬 ${escapeHtml(phone)}</a><a href="tel:+${escapeHtml(m.phone)}" dir="ltr">📞 اتصال</a>` : ''}
+      </div>
+      <div class="banner-actions">
+        ${m.status !== 'done' ? '<button type="button" class="btn btn-primary btn-sm" data-msg-action="done">✓ تمت المعالجة</button>' : '<button type="button" class="btn btn-ghost btn-sm" data-msg-action="new">↺ إعادة فتحها</button>'}
+        ${m.status === 'new' ? '<button type="button" class="btn btn-ghost btn-sm" data-msg-action="read">👁 مقروءة</button>' : ''}
+        <button type="button" class="btn btn-ghost btn-sm danger" data-msg-action="delete">🗑️</button>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+document.querySelectorAll('input[name="msgFilter"]').forEach(r => r.addEventListener('change', renderMessages));
+
+$('messageList').addEventListener('click', async e => {
+  const action = e.target.closest('[data-msg-action]')?.dataset.msgAction;
+  const card = e.target.closest('.msg-card');
+  const m = action && card && state.messages.find(x => String(x.id) === card.dataset.id);
+  if (!m) return;
+  try {
+    if (action === 'delete') {
+      if (!confirm('حذف هذه الرسالة نهائيًا؟')) return;
+      await backend.deleteMessage(m.id);
+      state.messages = state.messages.filter(x => x !== m);
+    } else {
+      await backend.setMessageStatus(m.id, action);
+      m.status = action;
+    }
+    renderMessages();
+  } catch (err) {
+    toast(`تعذر تنفيذ العملية: ${err.message}`, 'error');
+  }
+});
+
 // ---------- التنقل ----------
 
-const TABS = { '#admin/stores': 'stores', '#admin/banners': 'banners', '#admin/settings': 'settings' };
+const TABS = { '#admin/messages': 'messages', '#admin/stores': 'stores', '#admin/banners': 'banners', '#admin/settings': 'settings' };
 
 function route() {
   if (!location.hash.startsWith('#admin')) return;

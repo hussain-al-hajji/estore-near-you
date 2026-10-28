@@ -41,6 +41,7 @@
         <img src="assets/img/logo.svg" alt="دكان الحي" height="40">
       </a>
       <span class="tagline">متاجر إلكترونية من حيّك 📍</span>
+      <button type="button" class="btn btn-ghost btn-contact" data-open-contact title="راسلنا">✉️ <span>راسلنا</span></button>
       <a class="btn btn-ghost btn-account" href="#account" title="دخول أصحاب المتاجر">🔑 <span>متجري</span></a>
       <a class="btn btn-primary btn-pop" href="#add"><span class="plus">+</span> أضف متجرك</a>
     </header>
@@ -77,6 +78,7 @@
 
     <main class="split">
       <div class="geo-note" id="geoNote" role="status" hidden></div>
+      <button type="button" class="btn btn-primary btn-sm search-here" id="searchHere" hidden>🔍 ابحث في هذه المنطقة</button>
       <div id="map" class="map" role="region" aria-label="خريطة المتاجر"></div>
       <section class="sheet" aria-label="قائمة المتاجر">
         <div class="sheet-head">
@@ -399,6 +401,11 @@
         <button type="submit" class="btn btn-primary btn-lg btn-pop" id="submitBtn">أرسل طلبك 🚀</button>
       </form>
 
+      <div class="form-contact" id="formContact" hidden>
+        <strong>عندك سؤال قبل التسجيل؟ تواصل معنا</strong>
+        <span class="fc-links" id="formContactLinks"></span>
+      </div>
+
       <section class="success" id="success" hidden>
         <div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="success-icon">🎉</div>
@@ -494,6 +501,7 @@
         <nav class="tabs" role="tablist">
           <a href="#admin/overview" class="tab" data-tab="overview" role="tab">📊 نظرة عامة</a>
           <a href="#admin/stores" class="tab" data-tab="stores" role="tab">🏪 المتاجر <span class="count-badge" id="pendingBadge" hidden></span></a>
+          <a href="#admin/messages" class="tab" data-tab="messages" role="tab">📩 الرسائل <span class="count-badge" id="msgBadge" hidden></span></a>
           <a href="#admin/banners" class="tab" data-tab="banners" role="tab">📣 الإعلانات</a>
           <a href="#admin/settings" class="tab" data-tab="settings" role="tab">⚙️ الإعدادات</a>
         </nav>
@@ -602,6 +610,21 @@
           </table>
           <div class="status" id="tableEmpty" hidden></div>
         </div>
+      </section>
+
+      <!-- الرسائل -->
+      <section class="view" id="adminMessages" data-tab="messages" hidden>
+        <div class="view-head">
+          <div>
+            <h1>الرسائل</h1>
+            <p class="muted">رسائل زوار الموقع من زر «راسلنا»</p>
+          </div>
+          <div class="segmented range" role="radiogroup" aria-label="تصفية الرسائل">
+            <label><input type="radio" name="msgFilter" value="open" checked><span>غير المعالجة</span></label>
+            <label><input type="radio" name="msgFilter" value="all"><span>الكل</span></label>
+          </div>
+        </div>
+        <div class="banner-list" id="messageList"></div>
       </section>
 
       <!-- الإعلانات -->
@@ -742,6 +765,34 @@
     <div class="tooltip" id="tooltip" role="status" hidden></div>
     <div class="toast" id="toast" role="status" hidden></div>
   </div>
+
+  <dialog class="report-dialog" id="contactDialog" aria-labelledby="contactTitle">
+    <form id="contactForm" novalidate>
+      <button type="button" class="close" data-close aria-label="إغلاق">✕</button>
+      <div class="report-body">
+        <h2 id="contactTitle">✉️ راسلنا</h2>
+        <p class="hint">اكتب استفسارك وبنرد عليك على إيميلك أو جوالك.</p>
+        <label class="field"><span>الاسم <b>*</b></span><input name="name" maxlength="80" autocomplete="name" required></label>
+        <div class="bd-grid">
+          <label class="field"><span>الإيميل</span><input name="email" type="email" maxlength="120" dir="ltr" autocomplete="email"></label>
+          <label class="field"><span>الجوال</span><input name="phone" inputmode="tel" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel"></label>
+        </div>
+        <small class="hint-sm">اكتب واحد منهما على الأقل.</small>
+        <label class="field"><span>موضوع الرسالة</span><select name="topic" id="contactTopic"></select></label>
+        <label class="field"><span>استفسارك <b>*</b></span><textarea name="message" rows="4" maxlength="1000" required></textarea></label>
+        <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <p class="error" id="contactError" hidden></p>
+        <button type="submit" class="btn btn-primary">إرسال الرسالة</button>
+        <p class="hint">تصل رسالتك لفريق دكان الحي فقط.</p>
+      </div>
+      <div class="report-done" hidden>
+        <span class="big">🙏</span>
+        <h2>وصلتنا رسالتك</h2>
+        <p>بنرد عليك في أقرب وقت.</p>
+        <button type="button" class="btn btn-primary" data-close>تمام</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin=""></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin=""></script>

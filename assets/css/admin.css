@@ -376,3 +376,8 @@ small.bill { display: block; width: fit-content; margin-top: 4px; }
 .pin-head { display: flex; align-items: center; gap: 10px; }
 #pinStore { width: 100%; min-height: 150px; border: 2px solid var(--line); border-radius: 14px; padding: 6px; background: #fff; font: inherit; }
 .drawer-warn { margin: 14px 16px 0; padding: 10px 14px; border-radius: 14px; background: #fff3d6; color: #7a5200; font-size: 14px; }
+
+/* ---------- الرسائل ---------- */
+.msg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.msg-head small { margin-inline-start: auto; }
+.msg-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }

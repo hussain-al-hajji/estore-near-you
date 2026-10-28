@@ -79,7 +79,10 @@ export function searchLocal(stores, p = {}) {
       if (p.delivery === 'delivery' ? !(d.includes('local') || d.includes('national')) : !d.includes(p.delivery)) continue;
     }
     const allLocs = storeLocations(s);
-    const locs = allLocs.filter(l => (!p.region || l.region === p.region) && (!p.city || l.city === p.city));
+    const view = p.north != null;
+    const locs = allLocs.filter(l => (view
+      ? l.lat >= p.south && l.lat <= p.north && l.lng >= p.west && l.lng <= p.east
+      : (!p.region || l.region === p.region) && (!p.city || l.city === p.city)));
     if (!locs.length) continue;
     const km = geo ? Math.min(...locs.map(l => haversineKm(p.lat, p.lng, l.lat, l.lng))) : null;
     if (geo && p.radius > 0 && km > p.radius) continue;

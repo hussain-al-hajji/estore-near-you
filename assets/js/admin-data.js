@@ -52,6 +52,10 @@ function liveBackend(sb) {
     closeReport: async (id, status) => {
       check(await sb.from('store_reports').update({ status, resolved_at: new Date().toISOString() }).eq('id', id));
     },
+    messages: async () => check(await sb.from('contact_messages').select('id, name, email, phone, topic, message, status, created_at')
+      .order('created_at', { ascending: false }).limit(300)),
+    setMessageStatus: async (id, status) => { check(await sb.from('contact_messages').update({ status }).eq('id', id)); },
+    deleteMessage: async id => { check(await sb.from('contact_messages').delete().eq('id', id)); },
     pins: async () => check(await sb.from('pinned_stores').select('*').order('created_at', { ascending: false })),
     async savePin({ id, ...fields }) {
       if (id) check(await sb.from('pinned_stores').update(fields).eq('id', id));
@@ -184,6 +188,20 @@ function demoBackend() {
       storage(DEMO_KEYS.edits, edits);
     },
     performance: async (id, days) => demoPerformance(id, days),
+    async messages() {
+      const list = storage(DEMO_KEYS.messages) || [];
+      if (list.length) return [...list].sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return [{ id: 1, name: 'نورة', email: 'noura@example.com', phone: null, topic: 'billing', message: 'متى موعد سداد الاشتراك؟ وهل في طريقة سداد غير الحوالة؟', status: 'new', created_at: new Date(Date.now() - 3 * 3600000).toISOString() }];
+    },
+    async setMessageStatus(id, status) {
+      const list = await this.messages();
+      const m = list.find(x => x.id === id);
+      if (m) m.status = status;
+      storage(DEMO_KEYS.messages, list);
+    },
+    async deleteMessage(id) {
+      storage(DEMO_KEYS.messages, (await this.messages()).filter(x => x.id !== id));
+    },
     pins: async () => [...demoPinList()].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     async savePin({ id, ...fields }) {
       const list = demoPinList();

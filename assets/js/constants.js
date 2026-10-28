@@ -77,3 +77,13 @@ export const REPORT_REASONS = {
   scam: { icon: '⚠️', label: 'احتيال أو مخالفة' },
   other: { icon: '💬', label: 'سبب آخر' },
 };
+
+// مواضيع رسائل «راسلنا» (تطابق قاعدة البيانات)
+export const CONTACT_TOPICS = {
+  general: 'استفسار عام',
+  register: 'تسجيل متجر',
+  billing: 'الاشتراك والسداد',
+  ads: 'الإعلانات والتثبيت',
+  report: 'ملاحظة أو بلاغ',
+  other: 'أخرى',
+};

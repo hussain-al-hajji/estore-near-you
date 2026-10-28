@@ -13,7 +13,7 @@ const $ = id => document.getElementById(id);
 const els = {
   q: $('q'), region: $('region'), city: $('city'), entity: $('entity'), chips: $('categoryChips'),
   nearMe: $('nearMe'), radius: $('radius'), list: $('list'), count: $('count'),
-  subtitle: $('subtitle'), status: $('status'), geoNote: $('geoNote'), intent: $('intentNote'), banner: $('adBanner'),
+  subtitle: $('subtitle'), status: $('status'), geoNote: $('geoNote'), intent: $('intentNote'), banner: $('adBanner'), searchHere: $('searchHere'),
 };
 
 // gate: قبل السماح بالموقع أو اختيار مدينة/فلتر، نعرض طلب تفعيل الموقع بدل القائمة
@@ -21,11 +21,13 @@ const els = {
 const state = {
   results: [], total: 0, cities: [], pageSize: 30, maxOffset: 60, error: null, relaxed: false,
   intent: null, intentFor: '', dismissed: new Set(), eff: { region: '', city: '' }, shared: null, pinned: [],
+  useBounds: false, bounds: null, lastMove: null,
   userLoc: null, selectedId: null, category: '', gate: true, geoDenied: false,
 };
 const markers = new Map();
 
 const map = createMap('map');
+window.dukkanMap = map; // للاختبار والتصحيح
 const cluster = L.markerClusterGroup({
   showCoverageOnHover: false, maxClusterRadius: 45, iconCreateFunction: clusterIcon,
 });
@@ -67,17 +69,31 @@ function understand() {
   return parseIntent(q, { categories: CATEGORIES, dismissed: state.dismissed });
 }
 
+// نطاق الخريطة الحالي (مع مركزه)
+function viewBounds() {
+  const b = map.getBounds();
+  const c = b.getCenter();
+  return { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest(), zoom: map.getZoom(), lat: c.lat, lng: c.lng };
+}
+
+const inBounds = (l, b) => l.lat >= b.south && l.lat <= b.north && l.lng >= b.west && l.lng <= b.east;
+
 function searchParams() {
   if (state.shared) return { id: state.shared };
   const it = understand();
   state.intent = it;
+  // عند تصفح الخريطة يتقدم نطاقها على المنطقة والمدينة والمسافة
+  const bounds = state.useBounds ? viewBounds() : null;
+  state.bounds = bounds;
   // ما كتبه الزائر في البحث يتقدم على القوائم المنسدلة
-  const region = it.region || els.region.value;
-  const city = it.city || (it.region ? '' : els.city.value);
+  const region = bounds ? '' : it.region || els.region.value;
+  const city = bounds ? '' : it.city || (it.region ? '' : els.city.value);
   state.eff = { region, city };
+  const anchor = state.userLoc || bounds;
   return {
-    lat: state.userLoc?.lat, lng: state.userLoc?.lng,
-    radius: state.userLoc ? Number(els.radius.value) || 0 : 0,
+    lat: anchor?.lat, lng: anchor?.lng,
+    ...(bounds ? { north: bounds.north, south: bounds.south, east: bounds.east, west: bounds.west } : {}),
+    radius: state.userLoc && !bounds ? Number(els.radius.value) || 0 : 0,
     region, city, category: state.category,
     entity: it.entity || els.entity.value, delivery: it.delivery,
     terms: it.terms, boost: it.boost, q: els.q.value.trim(),
@@ -91,6 +107,7 @@ function hasFilters() {
 // المتجر قد يكون له أكثر من موقع: نعرض المواقع المطابقة للمنطقة/المدينة، والمسافة تُقاس لأقربها
 function rows() {
   const { region, city } = state.eff;
+  const view = state.bounds;
   // المتاجر المثبّتة تظهر أولًا عند التصفح بدون كلمات بحث، وتحترم فلتر المجال والنوع
   const it = state.intent;
   const pins = state.shared || it?.terms?.length ? [] : state.pinned
@@ -99,7 +116,7 @@ function rows() {
   const pinnedIds = new Set(pins.map(s => s.id));
   let list = state.results
     .filter(s => !pinnedIds.has(s.id))
-    .map(s => ({ ...s, shownLocs: s.locs.filter(l => (!region || l.region === region) && (!city || l.city === city)) }))
+    .map(s => ({ ...s, shownLocs: s.locs.filter(l => (view ? inBounds(l, view) : (!region || l.region === region) && (!city || l.city === city))) }))
     .filter(s => s.shownLocs.length);
   if (state.userLoc) {
     list = list.map(s => {
@@ -254,6 +271,7 @@ const loggedImpressions = new Set();
 
 function searcherCity() {
   if (state.eff.city) return state.eff.city;
+  if (state.bounds) return nearestCity(state.bounds.lat, state.bounds.lng)?.city || '';
   if (state.userLoc) return nearestCity(state.userLoc.lat, state.userLoc.lng)?.city || '';
   return state.eff.region;
 }
@@ -277,6 +295,7 @@ function moreHtml(list) {
   const shown = state.results.length;
   if (!list.length || shown >= state.total) return '';
   if (shown >= state.maxOffset + state.pageSize) {
+    if (state.bounds) return `<li class="list-more"><span>نعرض ${storesCountLabel(shown)} من ${state.total} في هذا النطاق. قرّب الخريطة أو حرّكها لرؤية متاجر أخرى.</span></li>`;
     return `<li class="list-more"><span>نعرض ${state.userLoc ? 'أقرب' : 'أحدث'} ${storesCountLabel(shown)} من ${state.total}. اختر مدينتك أو التصنيف أو ابحث بالاسم عشان تلقى غيرها.</span></li>`;
   }
   return `<li class="list-more"><button type="button" class="btn btn-ghost" data-action="more">عرض المزيد <small>(${shown} من ${state.total})</small></button></li>`;
@@ -392,7 +411,8 @@ function renderBanner(b) {
 }
 
 async function refreshBanner() {
-  const region = state.eff.region || (state.userLoc ? nearestCity(state.userLoc.lat, state.userLoc.lng)?.region : '') || '';
+  const region = state.eff.region || (state.bounds ? nearestCity(state.bounds.lat, state.bounds.lng)?.region : '')
+    || (state.userLoc ? nearestCity(state.userLoc.lat, state.userLoc.lng)?.region : '') || '';
   if (region === bannerRegion) return;
   bannerRegion = region;
   const [banners, pinned] = await Promise.all([getBanners(region), getPinnedStores(region)]);
@@ -415,15 +435,73 @@ els.banner.addEventListener('click', e => {
   if (link) bannerClick(link.dataset.banner);
 });
 
+// فقاعات المدن تظهر فقط عند التصغير، وعند التقريب تظهر المتاجر نفسها
+function updateCityLayer() {
+  const show = map.getZoom() <= 9;
+  if (show && !map.hasLayer(cityLayer)) map.addLayer(cityLayer);
+  if (!show && map.hasLayer(cityLayer)) map.removeLayer(cityLayer);
+}
+
+// ---- تصفح الخريطة: القائمة تتبع النطاق الظاهر عند التحريك أو التكبير ----
+function leaveMapMode() {
+  state.useBounds = false;
+  state.lastMove = null;
+  els.searchHere.hidden = true;
+}
+
+let lastUserAction = 0;
+let moveTimer = null;
+for (const ev of ['pointerdown', 'wheel', 'touchstart', 'keydown']) {
+  map.getContainer().addEventListener(ev, () => { lastUserAction = Date.now(); }, { passive: true });
+}
+
+// تجاهل التحريك الصغير (مثل فتح نافذة متجر) حتى ما تتغير القائمة بدون داعٍ
+function movedEnough(prev, next) {
+  if (!prev || prev.zoom !== next.zoom) return true;
+  return Math.abs(next.lat - prev.lat) > 0.2 * (prev.north - prev.south) || Math.abs(next.lng - prev.lng) > 0.2 * (prev.east - prev.west);
+}
+
+function onUserMove() {
+  const next = viewBounds();
+  if (!movedEnough(state.lastMove, next)) return;
+  state.lastMove = next;
+  if (state.shared) leaveShared();
+  const hasTerms = understand().terms.length > 0;
+  if (!hasTerms || state.useBounds) {
+    gateOff();
+    state.useBounds = true;
+    els.searchHere.hidden = true;
+    scheduleSearch({});
+  } else {
+    // فيه كلمات بحث: الزائر يقرر هل يبحث في النطاق
+    els.searchHere.hidden = false;
+  }
+}
+
+map.on('moveend', () => {
+  updateCityLayer();
+  if (Date.now() - lastUserAction > 1800) return;
+  clearTimeout(moveTimer);
+  moveTimer = setTimeout(onUserMove, 450);
+});
+
+els.searchHere.addEventListener('click', () => {
+  gateOff();
+  state.useBounds = true;
+  state.lastMove = viewBounds();
+  els.searchHere.hidden = true;
+  scheduleSearch({});
+});
+
 function render({ fit = false } = {}) {
   els.list.classList.remove('is-loading');
   const gated = state.gate && !state.userLoc;
   const list = gated ? [] : rows();
   if (!gated) scheduleImpressions(list);
   els.count.textContent = state.error && !list.length ? 'تعذر التحميل'
-    : gated ? '📍 المتاجر القريبة منك' : storesCountLabel(state.total);
+    : gated ? '📍 المتاجر القريبة منك' : storesCountLabel(state.total + list.filter(s => s.pinned && !state.results.some(r => r.id === s.id)).length);
   els.subtitle.textContent = gated ? 'فعّل موقعك، أو اختر منطقتك ومدينتك'
-    : state.shared ? 'متجر شاركه معك أحدهم' : state.userLoc ? 'مرتبة من الأقرب لك' : (state.eff.city || state.eff.region || 'في كل المملكة');
+    : state.shared ? 'متجر شاركه معك أحدهم' : state.bounds ? 'داخل نطاق الخريطة' : state.userLoc ? 'مرتبة من الأقرب لك' : (state.eff.city || state.eff.region || 'في كل المملكة');
   renderIntent();
   refreshBanner();
   els.list.innerHTML = list.map(s => renderCard(s, { selected: s.id === state.selectedId })).join('') + moreHtml(list);
@@ -441,6 +519,8 @@ function render({ fit = false } = {}) {
     els.status.innerHTML = gateHtml();
   } else if (!list.length && state.userLoc && els.radius.value) {
     els.status.innerHTML = `<span class="big">📍</span><strong>ما فيه متاجر خلال ${escapeHtml(els.radius.value)} كم منك</strong><span>وسّع المسافة أو تصفح كل المتاجر.</span><button type="button" class="btn btn-primary btn-sm" data-action="widen">وسّع البحث</button>`;
+  } else if (!list.length && state.bounds) {
+    els.status.innerHTML = '<span class="big">🗺️</span><strong>ما فيه متاجر في هذا النطاق</strong><span>وسّع الخريطة أو حرّكها لمكان ثاني.</span>';
   } else if (!list.length) {
     els.status.innerHTML = hasFilters()
       ? '<span class="big">🔍</span><strong>ما لقينا متاجر بهالفلاتر</strong><span>جرّب توسّع البحث أو تغيّر التصنيف.</span>'
@@ -464,7 +544,8 @@ function render({ fit = false } = {}) {
   }
   renderCities(list);
 
-  if (fit && list.length) {
+  updateCityLayer();
+  if (fit && list.length && !state.bounds) {
     const points = list.flatMap(s => s.shownLocs.map(l => [l.lat, l.lng]));
     if (state.userLoc) points.push([state.userLoc.lat, state.userLoc.lng]);
     map.fitBounds(L.latLngBounds(points), { padding: [50, 50], maxZoom: 14 });
@@ -524,6 +605,9 @@ els.chips.addEventListener('click', e => {
 
 els.q.addEventListener('input', () => {
   gateOff();
+  // كلمات بحث: بحث عادي، ومسح الكلمات يرجع لتتبع الخريطة
+  state.useBounds = !els.q.value.trim() && Boolean(state.lastMove);
+  els.searchHere.hidden = true;
   scheduleSearch({}, 400);
 });
 els.radius.addEventListener('change', () => scheduleSearch({ fit: true }));
@@ -537,6 +621,7 @@ function clearRadius() {
 }
 
 els.region.addEventListener('change', () => {
+  leaveMapMode();
   gateOff();
   clearRadius();
   updateCities();
@@ -544,6 +629,7 @@ els.region.addEventListener('change', () => {
   storage('dukkan.region', els.region.value);
 });
 els.city.addEventListener('change', () => {
+  leaveMapMode();
   gateOff();
   clearRadius();
   const region = REGIONS.find(r => r.name === els.region.value);
@@ -612,6 +698,7 @@ async function setUserLocation(p, { manual = false } = {}) {
 
 const nearMeLabel = els.nearMe.innerHTML;
 els.nearMe.addEventListener('click', async () => {
+  leaveMapMode();
   els.nearMe.disabled = true;
   els.nearMe.textContent = 'جارٍ تحديد موقعك…';
   showGeoNote('📡 نحدد موقعك بدقة، لحظات…');

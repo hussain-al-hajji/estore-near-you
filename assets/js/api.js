@@ -19,6 +19,7 @@ const DEMO = {
   reports: 'dukkan.demoReports',
   banners: 'dukkan.demoBanners',
   pins: 'dukkan.demoPins',
+  messages: 'dukkan.demoMessages',
 };
 
 export const isDemo = !LIVE;
@@ -112,6 +113,8 @@ export async function searchStores(params) {
       p_region: params.region || null, p_city: params.city || null, p_category: params.category || null,
       p_entity: params.entity || null, p_offset: params.offset || 0,
     };
+    // نطاق الخريطة الظاهر (عند تصفح الخريطة)
+    if (params.north != null) Object.assign(base, { p_north: params.north, p_south: params.south, p_east: params.east, p_west: params.west });
     let res = await call({
       ...base, p_terms: params.terms || [], p_delivery: params.delivery || null, p_boost: params.boost || [], p_id: params.id || null,
     });
@@ -208,6 +211,26 @@ export function bannerClick(id) {
   const stats = storage(`${DEMO.banners}Stats`) || {};
   (stats[id] ||= { impressions: 0, clicks: 0 }).clicks += 1;
   storage(`${DEMO.banners}Stats`, stats);
+}
+
+// رسالة «راسلنا» من زائر: تصل للوحة التحكم
+export async function submitContact({ name, email, phone, topic, message }) {
+  if (LIVE) {
+    const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/submit_contact`, {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ p_name: name, p_email: email || null, p_phone: phone || null, p_topic: topic, p_message: message }),
+    });
+    if (res.ok) return;
+    if (res.status === 429) throw new Error('أرسلت رسائل كثيرة، جرّب بعد شوي.');
+    if (res.status === 404) throw new Error('نموذج المراسلة يشتغل قريبًا، جرّب لاحقًا.');
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message && /[\u0600-\u06FF]/.test(body.message) ? body.message : 'ما قدرنا نرسل رسالتك، جرّب بعد شوي.');
+  }
+  const list = storage(DEMO.messages) || [];
+  list.push({
+    id: Date.now(), name, email: email || null, phone: phone || null, topic, message, status: 'new', created_at: new Date().toISOString(),
+  });
+  storage(DEMO.messages, list);
 }
 
 // ---- المتاجر المثبّتة في أعلى القائمة (يحددها المشرف بالمنطقة والمدة) ----

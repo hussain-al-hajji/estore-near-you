@@ -764,3 +764,15 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .card-preview { pointer-events: none; }
 .live-preview .notice { margin-top: 10px; }
 @media (max-width: 900px), (max-height: 700px) { .live-preview { position: static; } }
+
+.search-here { position: absolute; z-index: 500; top: 56px; left: 50%; translate: -50% 0; box-shadow: 3px 3px 0 var(--lime), 0 8px 24px rgb(0 0 0 / 20%); animation: pop-in .25s both; }
+
+/* ---------- راسلنا ---------- */
+.footer-link-btn { border: none; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: none; }
+.footer-link-btn:hover { text-decoration: underline; }
+.form-contact { margin: 22px 4px 0; padding: 14px 16px; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.fc-links { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.fc-links a { font-weight: 600; }
+.btn-contact { margin-inline-start: auto; }
+.btn-contact + .btn-account { margin-inline-start: 0; }
+@media (max-width: 640px) { .btn-contact span { display: none; } }

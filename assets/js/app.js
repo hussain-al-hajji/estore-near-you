@@ -70,6 +70,14 @@ async function route() {
   }
 }
 
+// زر «راسلنا» في أي صفحة: نحمّل نموذج المراسلة عند أول ضغطة
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('[data-open-contact]');
+  if (!btn) return;
+  e.preventDefault();
+  (await import('./contact.js')).openContact(btn.dataset.openContact || 'general');
+});
+
 window.addEventListener('hashchange', route);
 await loadSettings();
 renderFooters();

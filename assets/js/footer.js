@@ -1,8 +1,6 @@
 // تذييل الموقع: نبذة وشعار وعنوان وبيانات تواصل، من إعدادات لوحة التحكم
 import { SETTINGS } from './settings.js';
 
-const MAIL_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/></svg>';
-const WA_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9.5c.5 2.2 2.3 4 4.5 4.5"/></svg>';
 const PIN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
 
 function el(tag, attrs = {}, children = []) {
@@ -16,18 +14,8 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-// أيقونة فقط: الإيميل والرقم لا يُعرضان كنص، وتظهر التسمية عند التمرير
-function contactIcon(href, icon, label) {
-  return el('a', {
-    href, class: 'footer-icon-btn', title: label, 'aria-label': label,
-    target: href.startsWith('http') ? '_blank' : '_self', rel: 'noopener', html: icon,
-  });
-}
-
 export function renderFooters() {
   const f = SETTINGS.footer;
-  const email = (f.email || '').trim();
-  const wa = (f.whatsapp || '').replace(/\D/g, '');
   for (const host of document.querySelectorAll('[data-site-footer]')) {
     const contacts = el('div', { class: 'footer-contacts' });
     if (f.address) {
@@ -40,11 +28,6 @@ export function renderFooters() {
       doc.append(el('span', { text: `رقم الوثيقة: ${f.document}` }));
       contacts.append(doc);
     }
-    const icons = el('div', { class: 'footer-icons' });
-    if (email) icons.append(contactIcon(`mailto:${email}`, MAIL_ICON, 'راسلنا على الإيميل'));
-    if (wa) icons.append(contactIcon(`https://wa.me/${wa}`, WA_ICON, 'تواصل معنا على واتساب'));
-    if (icons.childElementCount) contacts.append(el('span', { class: 'footer-reach', text: 'تواصل معنا' }), icons);
-
     const brand = el('div', { class: 'footer-brand' }, [
       el('img', { src: 'assets/img/logo-white.svg', alt: 'دكان الحي', height: '40' }),
       el('p', { text: f.about || '' }),
@@ -53,6 +36,7 @@ export function renderFooters() {
       el('a', { href: '#', text: 'تصفح المتاجر' }),
       el('a', { href: '#add', text: 'أضف متجرك' }),
       el('a', { href: '#account', text: 'دخول أصحاب المتاجر' }),
+      el('button', { type: 'button', class: 'footer-link-btn', 'data-open-contact': 'general', text: 'راسلنا' }),
       el('a', { href: '#privacy', text: 'سياسة الخصوصية' }),
       el('a', { href: '#terms', text: 'شروط الاستخدام' }),
     ]);

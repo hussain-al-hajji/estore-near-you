@@ -56,6 +56,15 @@ function applyFormSettings() {
 
   renderCategories();
 
+  // بيانات التواصل مع المنصة تظهر هنا فقط (نهاية نموذج التسجيل)
+  const email = (SETTINGS.footer.email || '').trim();
+  const wa = (SETTINGS.footer.whatsapp || '').replace(/\D/g, '');
+  $('formContactLinks').innerHTML = [
+    email && `<a href="mailto:${escapeHtml(email)}" dir="ltr">📧 ${escapeHtml(email)}</a>`,
+    wa && `<a href="https://wa.me/${escapeHtml(wa)}" target="_blank" rel="noopener" dir="ltr">💬 واتساب: ${escapeHtml(wa)}</a>`,
+  ].filter(Boolean).join('');
+  $('formContact').hidden = !email && !wa;
+
   for (const wrap of form.querySelectorAll('[data-field]')) {
     const cfg = fs.fields[wrap.dataset.field] || { visible: true, required: false };
     const required = cfg.visible && cfg.required;
