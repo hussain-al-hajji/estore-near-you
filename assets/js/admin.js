@@ -224,6 +224,7 @@ async function loadAll() {
     setStats(stats);
     renderAll();
     renderSettings();
+    renderUsage();
     renderStorage();
   } catch (err) {
     toast(`تعذر تحميل البيانات: ${err.message}`, 'error');
@@ -890,6 +891,57 @@ const TABLE_LABELS = {
 };
 const FREE_PLAN_BYTES = 500 * 1024 * 1024;
 const mb = bytes => `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+
+// ---------- استهلاك البيانات الصادرة (تقدير من داخل المنصة) ----------
+
+const EGRESS_LIMIT_BYTES = 5 * 1024 ** 3;
+const gb = bytes => `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+const KIND_LABELS = { search: 'بحث المتاجر', banner: 'البنرات', pin: 'المتاجر المثبّتة' };
+
+async function renderUsage() {
+  const panel = $('usagePanel');
+  let data;
+  try {
+    data = await backend.usageStats();
+  } catch {
+    panel.innerHTML = '<h2>📶 استهلاك البيانات</h2><p class="muted">يتوفر بعد تشغيل ترحيل قاعدة البيانات 007.</p>';
+    return;
+  }
+  const today = riyadhDay();
+  const month = today.slice(0, 7);
+  const dayOfMonth = Number(today.slice(8));
+  const daysInMonth = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
+  const rows = data.days.filter(r => r.day.startsWith(month));
+  const total = rows.reduce((n, r) => n + Number(r.bytes), 0);
+  const calls = rows.filter(r => r.kind === 'search').reduce((n, r) => n + Number(r.calls), 0);
+  const projected = Math.round((total / Math.max(dayOfMonth, 1)) * daysInMonth);
+  const pct = Math.min(100, Math.round((total / EGRESS_LIMIT_BYTES) * 100));
+  const projPct = Math.round((projected / EGRESS_LIMIT_BYTES) * 100);
+  const perKind = Object.entries(KIND_LABELS).map(([k, label]) => {
+    const r = rows.filter(x => x.kind === k);
+    return [label, r.reduce((n, x) => n + Number(x.calls), 0), r.reduce((n, x) => n + Number(x.bytes), 0)];
+  }).filter(r => r[1]);
+  const avgKb = calls ? Math.round(rows.filter(r => r.kind === 'search').reduce((n, r) => n + Number(r.bytes), 0) / calls / 1024) : 0;
+  const level = projPct >= 90 ? 'عالي: فكّر في الترقية الآن' : projPct >= 70 ? 'قرّب من الحد: خطط للترقية' : 'مريح';
+  panel.innerHTML = `
+    <h2>📶 استهلاك البيانات الصادرة <small class="private">تقدير شهري</small></h2>
+    <div class="storage-meter${pct >= 70 ? ' warn' : ''}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${Math.max(pct, 1)}%"></span></div>
+    <p class="storage-text"><strong><bdi dir="ltr">${gb(total)}</bdi></strong> من <bdi dir="ltr">5 GB</bdi> (الخطة المجانية) · <bdi dir="ltr">${pct}%</bdi></p>
+    <p class="hint">المتوقع نهاية الشهر: <b><bdi dir="ltr">${gb(projected)}</bdi></b> (<bdi dir="ltr">${projPct}%</bdi>) · الحالة: <b class="${projPct >= 70 ? 'warn-text' : ''}">${level}</b></p>
+    <div class="chart" id="usageChart"></div>
+    <table class="fields-table storage-table">
+      <thead><tr><th>النوع</th><th>الطلبات</th><th>الحجم</th></tr></thead>
+      <tbody>${perKind.map(([label, c, b]) => `<tr><td>${label}</td><td>${formatNumber(c)}</td><td dir="ltr">${mb(b)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">ما فيه بيانات هذا الشهر بعد</td></tr>'}</tbody>
+    </table>
+    ${calls ? `<p class="hint">متوسط حجم نتيجة البحث <bdi dir="ltr">${avgKb} KB</bdi> · ${formatNumber(calls)} بحث هذا الشهر.</p>` : ''}
+    <p class="hint">⚠️ هذا تقدير لما ترسله المنصة من نتائج (بحث وبنرات وتثبيت)، وليس رقم Supabase الرسمي (يشمل أيضًا الحسابات والتسجيل وغيرها). للرقم الرسمي افتح مشروعك في Supabase ← <b>Settings ← Usage</b> وراقب «Egress». إذا قرّب من 70% فكّر في الترقية إلى Pro (250 GB).</p>`;
+  columnChart($('usageChart'), data.days.filter(r => r.day >= addDaysKey(today, -29)).reduce((acc, r) => {
+    const last = acc.at(-1);
+    if (last?.day === r.day) last.value += Number(r.bytes) / 1024 / 1024;
+    else acc.push({ day: r.day, value: Number(r.bytes) / 1024 / 1024 });
+    return acc;
+  }, []), { unit: 'MB', tooltip: $('tooltip') });
+}
 
 async function renderStorage() {
   const panel = $('storagePanel');

@@ -101,10 +101,34 @@ let serverSearch = LIVE;
 // يُستدعى عند الرجوع لصفحة التصفح حتى تظهر المتاجر المضافة أو المعتمدة حديثًا
 export function refreshStores() {
   allStores = null;
+  searchCache.clear();
+}
+
+// كاش نتائج البحث في المتصفح: نفس البحث (مثل الرجوع لنفس موضع الخريطة أو تبديل التصنيف) ما يرسل طلبًا جديدًا لدقائق
+const searchCache = new Map();
+const inflight = new Map();
+const CACHE_TTL = 3 * 60 * 1000;
+const CACHE_MAX = 80;
+
+export function searchStores(params) {
+  if (!LIVE) return searchStoresUncached(params);
+  const key = JSON.stringify(params);
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL) return Promise.resolve(hit.data);
+  if (inflight.has(key)) return inflight.get(key);
+  const request = searchStoresUncached(params)
+    .then(data => {
+      searchCache.set(key, { at: Date.now(), data });
+      if (searchCache.size > CACHE_MAX) searchCache.delete(searchCache.keys().next().value);
+      return data;
+    })
+    .finally(() => inflight.delete(key));
+  inflight.set(key, request);
+  return request;
 }
 
 // البحث: من السيرفر (أقرب 30 متجر في كل صفحة + عدد المتاجر في كل مدينة)
-export async function searchStores(params) {
+async function searchStoresUncached(params) {
   if (serverSearch) {
     const call = body => fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/search_stores`, {
       method: 'POST', headers: headers(), body: JSON.stringify(body),

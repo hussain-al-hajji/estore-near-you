@@ -75,6 +75,7 @@ function liveBackend(sb) {
       else check(await sb.from('banners').insert(fields));
     },
     deleteBanner: async id => { check(await sb.from('banners').delete().eq('id', id)); },
+    usageStats: async () => check(await sb.rpc('admin_usage_stats')),
     storageStats: async () => check(await sb.rpc('admin_storage_stats')),
     compactStats: async () => check(await sb.rpc('compact_stats')),
     adminSettings: async () => check(await sb.from('admin_settings').select('data').eq('id', 1).maybeSingle())?.data || {},
@@ -246,6 +247,17 @@ function demoBackend() {
     },
     async closeReport(id) {
       storage('dukkan.demoClosedReports', [...(storage('dukkan.demoClosedReports') || []), String(id)]);
+    },
+    // أرقام تجريبية لاستهلاك البيانات
+    async usageStats() {
+      const days = [];
+      for (let i = 20; i >= 0; i -= 1) {
+        const day = dayKey(new Date(Date.now() - i * 86400000));
+        const calls = Math.round(300 + seeded(day) * 400);
+        days.push({ day, kind: 'search', calls, bytes: calls * Math.round(45000 + seeded(`${day}b`) * 40000) });
+        days.push({ day, kind: 'banner', calls: Math.round(calls * 0.3), bytes: Math.round(calls * 0.3) * 6000 });
+      }
+      return { days };
     },
     async storageStats() {
       const run = storage('dukkan.demoCompact');

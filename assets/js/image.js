@@ -1,6 +1,6 @@
-// ضغط الشعار في المتصفح قبل الرفع: صورة مربعة صغيرة (حوالي 3 إلى 6 كيلوبايت) تُحفظ كنص داخل قاعدة البيانات،
+// ضغط الشعار في المتصفح قبل الرفع: صورة مربعة صغيرة 64 بكسل (حوالي 2 إلى 4 كيلوبايت) تُحفظ كنص داخل قاعدة البيانات،
 // فلا تحتاج مساحة تخزين ملفات مدفوعة. يطابق حد قاعدة البيانات (12 ألف حرف).
-export const MAX_LOGO_CHARS = 8000;
+export const MAX_LOGO_CHARS = 5000;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 function loadImage(file) {
@@ -24,7 +24,7 @@ export async function compressLogo(file) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   // نجرّب أحجامًا وجودات أقل حتى نصل للحد (WebP يحفظ الشفافية، وإن لم يدعمه المتصفح نستخدم JPEG)
-  for (const size of [96, 80, 64]) {
+  for (const size of [64, 56, 48]) {
     canvas.width = size;
     canvas.height = size;
     ctx.clearRect(0, 0, size, size);

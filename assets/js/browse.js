@@ -70,10 +70,17 @@ function understand() {
 }
 
 // نطاق الخريطة الحالي (مع مركزه)
+// نقرّب حدود النطاق للخارج لخطوة 0.02 درجة (نحو 2 كم) حتى تتطابق طلبات التحريك الصغير ويستفيد الكاش
+const STEP = 0.02;
+const up = v => Math.round(Math.ceil(v / STEP - 1e-9) * STEP * 100) / 100;
+const down = v => Math.round(Math.floor(v / STEP + 1e-9) * STEP * 100) / 100;
 function viewBounds() {
   const b = map.getBounds();
-  const c = b.getCenter();
-  return { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest(), zoom: map.getZoom(), lat: c.lat, lng: c.lng };
+  const north = up(b.getNorth());
+  const south = down(b.getSouth());
+  const east = up(b.getEast());
+  const west = down(b.getWest());
+  return { north, south, east, west, zoom: map.getZoom(), lat: (north + south) / 2, lng: (east + west) / 2 };
 }
 
 const inBounds = (l, b) => l.lat >= b.south && l.lat <= b.north && l.lng >= b.west && l.lng <= b.east;
@@ -94,8 +101,9 @@ function searchParams() {
   const city = bounds ? '' : it.city || (it.region ? '' : els.city.value);
   state.eff = { region, city };
   const anchor = state.userLoc || bounds;
+  const r3 = v => (v == null ? v : Math.round(v * 1000) / 1000);
   return {
-    lat: anchor?.lat, lng: anchor?.lng,
+    lat: r3(anchor?.lat), lng: r3(anchor?.lng),
     ...(bounds ? { north: bounds.north, south: bounds.south, east: bounds.east, west: bounds.west } : {}),
     radius: radiusKm,
     region, city, category: state.category,
