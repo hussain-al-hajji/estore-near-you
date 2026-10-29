@@ -129,7 +129,7 @@ function showInstallHint(show) {
   if (!hint) return;
   clearTimeout(hintTimer);
   hint.hidden = !show;
-  if (show) hintTimer = setTimeout(() => { hint.hidden = true; }, 12000);
+  if (show) hintTimer = setTimeout(() => { hint.hidden = true; }, 45000);
 }
 document.getElementById('installDialog')?.addEventListener('click', e => {
   if (e.target.id === 'installDialog' || e.target.closest('[data-close]')) e.currentTarget.close();

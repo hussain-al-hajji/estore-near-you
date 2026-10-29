@@ -789,18 +789,34 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 
 /* ---------- راسلنا ---------- */
 .install-hint {
-  position: fixed; z-index: 3000; left: 50%; top: 14px; translate: -50% 0; width: max-content; max-width: calc(100% - 32px);
-  padding: 10px 16px; border-radius: 16px; background: var(--ink); color: #fff; font-size: 14px; text-align: center;
-  box-shadow: 3px 3px 0 var(--lime), 0 8px 24px rgb(0 0 0 / 25%); animation: pop-in .25s both;
+  position: fixed; z-index: 3000; left: 50%; top: 12px; translate: -50% 0; width: min(380px, calc(100% - 24px));
+  padding: 16px 18px 18px; border-radius: 20px; background: var(--ink); color: #fff; text-align: start;
+  box-shadow: 4px 4px 0 var(--lime), 0 14px 40px rgb(0 0 0 / 35%); animation: pop-in .25s both;
 }
 .install-hint[hidden] { display: none; }
+.install-hint strong { display: block; font-size: 19px; line-height: 1.4; color: var(--lime); margin-bottom: 10px; }
+.install-hint ol { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 10px; }
+.install-hint li { counter-increment: step; display: flex; gap: 12px; align-items: flex-start; font-size: 16.5px; line-height: 1.6; }
+.install-hint li::before {
+  content: counter(step, arabic-indic); flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--lime); color: var(--ink); font-weight: 800; font-size: 17px; line-height: 1;
+}
+.install-hint b { color: #fff; background: rgb(255 255 255 / 14%); padding: 1px 6px; border-radius: 6px; }
+.install-hint small { display: block; color: rgb(255 255 255 / 70%); font-size: 13px; }
 .install-body { position: relative; padding: 22px 20px 20px; }
 .install-body .close {
   position: absolute; top: 12px; left: 12px; width: 34px; height: 34px; border-radius: 50%;
   border: none; background: var(--bg); color: var(--ink); font-size: 15px; cursor: pointer;
 }
 .install-body h2 { margin: 0 0 12px; font-size: 20px; padding-inline-end: 8px; }
-.install-steps { margin: 0; padding-inline-start: 22px; line-height: 2; font-size: 15px; }
+.install-lead { margin: 0 0 10px; font-weight: 700; font-size: 16px; }
+.install-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 12px; }
+.install-steps li { counter-increment: step; display: flex; gap: 12px; align-items: flex-start; font-size: 16px; line-height: 1.7; }
+.install-steps li::before {
+  content: counter(step, arabic-indic); flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--violet); color: #fff; font-weight: 800; font-size: 17px; line-height: 1;
+}
+.install-steps small { display: block; color: var(--muted); font-size: 13px; }
 .form-contact { margin: 22px 4px 0; padding: 14px 16px; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .fc-links { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .fc-links a { font-weight: 600; }
