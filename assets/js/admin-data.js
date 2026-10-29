@@ -36,6 +36,7 @@ function liveBackend(sb) {
       .order('created_at', { ascending: false })).map(flattenOwner),
     eventStats: async days => check(await sb.rpc('admin_event_stats', { p_days: days })),
     update: async (id, patch) => { check(await sb.from('stores').update(patch).eq('id', id)); },
+    adminUpdateStore: async (id, data) => { check(await sb.rpc('admin_update_store', { p_store: id, p_data: data })); },
     remove: async id => { check(await sb.from('stores').delete().eq('id', id)); },
     payments: async () => check(await sb.from('payments').select('*').order('created_at', { ascending: false })),
     recordPayment: async (id, amount, note) =>
@@ -164,6 +165,7 @@ function demoBackend() {
         (admin.patch ||= {})[id] = { ...(admin.patch[id] || {}), ...patch };
       });
     },
+    adminUpdateStore: async (id, data) => demoApplyEdit({ store_id: id, data }),
     async remove(id) {
       updateAdmin(admin => { (admin.deleted ||= []).push(id); });
     },

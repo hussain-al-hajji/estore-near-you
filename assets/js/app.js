@@ -35,7 +35,7 @@ const VIEWS = {
 window.dukkanRecovery = /type=recovery/.test(location.hash);
 
 function viewFor(hash) {
-  if (hash === '#add' || hash === '#edit') return 'add';
+  if (hash === '#add' || hash === '#edit' || hash === '#admin-edit') return 'add';
   if (hash === '#privacy' || hash === '#terms') return 'legal';
   if (hash === '#account' || /access_token=|type=recovery/.test(hash)) return 'account';
   if (hash === '#admin' || hash.startsWith('#admin/')) return 'admin';

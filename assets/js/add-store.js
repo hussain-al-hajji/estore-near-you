@@ -18,7 +18,9 @@ const f = form.elements;
 const $ = id => document.getElementById(id);
 
 // register: تسجيل متجر جديد · edit: طلب تعديل متجر قائم (يمر على مراجعة المشرف)
+// admin: تعديل المشرف المباشر لكل بيانات المتجر (يُحفظ فورًا)
 let mode = 'register';
+let adminBackend = null;
 let editId = null;
 let ownerPromise = null;
 const owner = () => (ownerPromise ||= createOwnerBackend());
@@ -69,7 +71,8 @@ function applyFormSettings() {
   $('formContact').hidden = !email && !wa;
 
   for (const wrap of form.querySelectorAll('[data-field]')) {
-    const cfg = fs.fields[wrap.dataset.field] || { visible: true, required: false };
+    // المشرف يشوف كل الحقول ولا يُلزم بشي منها
+    const cfg = mode === 'admin' ? { visible: true, required: false } : fs.fields[wrap.dataset.field] || { visible: true, required: false };
     const required = cfg.visible && cfg.required;
     wrap.hidden = !cfg.visible;
     const opt = wrap.querySelector('.opt');
@@ -602,7 +605,8 @@ form.addEventListener('submit', async e => {
   if (!chosenCats.length) {
     return formError('اختر مجال واحد على الأقل لمتجرك.', $('catBtn'));
   }
-  const districtRequired = SETTINGS.form.fields.district?.visible !== false && SETTINGS.form.fields.district?.required;
+  const fields = mode === 'admin' ? {} : SETTINGS.form.fields;
+  const districtRequired = fields.district?.visible !== false && fields.district?.required;
   const missing = locations.findIndex(l => l.lat === null || !l.region || !l.city || (districtRequired && !l.district.trim()));
   if (missing !== -1) {
     selectLocation(missing);
@@ -615,7 +619,6 @@ form.addEventListener('submit', async e => {
     return formError(`اكتب اسم الحي للموقع ${missing + 1}.`, f.district);
   }
 
-  const fields = SETTINGS.form.fields;
   const shown = key => fields[key]?.visible !== false;
   const needed = key => shown(key) && fields[key]?.required;
   const delivery = shown('delivery') ? [...form.querySelectorAll('input[name="delivery"]:checked')].map(c => c.value) : [];
@@ -644,7 +647,7 @@ form.addEventListener('submit', async e => {
     snapchat: normalizeHandle(social('snapchat')) || null,
     whatsapp: normalizePhone(f.whatsapp.value) || null,
     store_email: f.store_email.value.trim() || null,
-    has_physical_store: f.physical_store.value === 'yes',
+    has_physical_store: f.physical_store.value ? f.physical_store.value === 'yes' : null,
     delivery,
     location_type: 'store',
     locations: locations.map(l => ({
@@ -664,7 +667,16 @@ form.addEventListener('submit', async e => {
   btn.disabled = true;
   btn.textContent = 'لحظة… جارٍ الإرسال';
   try {
-    if (mode === 'edit') {
+    if (mode === 'admin') {
+      const { owner_name, phone: ownerPhone, cr_number, registrant_role, registrant_title, email, location_type, ...fieldsData } = payload;
+      await adminBackend.adminUpdateStore(editId, {
+        ...fieldsData, owner: { owner_name, phone: ownerPhone, email, cr_number, registrant_role, registrant_title },
+      });
+      $('successTitle').textContent = 'تم حفظ التعديلات ✅';
+      $('successText').textContent = 'تحدّثت بيانات المتجر وصارت ظاهرة على المنصة مباشرة.';
+      $('successLink').textContent = 'رجوع للوحة التحكم';
+      $('successLink').href = '#admin';
+    } else if (mode === 'edit') {
       const { owner_name, phone: ownerPhone, cr_number, registrant_role, registrant_title, email, location_type, ...fieldsData } = payload;
       await (await owner()).submitEdit(editId, {
         ...fieldsData, owner: { owner_name, phone: ownerPhone, cr_number, registrant_role, registrant_title },
@@ -714,20 +726,50 @@ async function startEdit() {
     location.hash = '#account';
     return;
   }
-  const { store: s, owner: o = {}, locations: locs, edit } = item;
   mode = 'edit';
-  editId = s.id;
-
+  fillForm(item);
+  const { edit } = item;
   $('formTitle').textContent = 'تعديل بيانات متجرك';
   $('formSubtitle').textContent = 'عدّل اللي تبيه وأرسله، ويطلع على المنصة بعد مراجعة فريق دكان الحي.';
-  $('formBadge').hidden = true;
-  $('accountFieldset').hidden = true;
-  for (const name of ['login_email', 'password', 'password2']) f[name].required = false;
   $('editNotice').hidden = !(edit && edit.status !== 'approved');
   $('editNotice').textContent = edit?.status === 'pending'
     ? '⏳ عندك طلب تعديل سابق قيد المراجعة، وإرسال طلب جديد يستبدله.'
     : edit?.status === 'rejected' ? `❌ آخر طلب تعديل ما اعتُمد${edit.admin_note ? `: ${edit.admin_note}` : ''}.` : '';
   $('submitBtn').textContent = 'أرسل التعديل للمراجعة ✏️';
+}
+
+// المشرف: يفتح أي متجر من لوحة التحكم ويعدّل كل بياناته، والحفظ مباشر بدون مراجعة
+async function startAdminEdit() {
+  let wanted = null;
+  try { wanted = sessionStorage.getItem('dukkan.adminEdit'); } catch { /* لا شيء */ }
+  let s = null;
+  try {
+    const { createBackend } = await import('./admin-data.js');
+    adminBackend ||= await createBackend();
+    if (await adminBackend.session() && await adminBackend.isAdmin()) s = (await adminBackend.stores()).find(x => x.id === wanted);
+  } catch { /* غير مشرف */ }
+  if (!s) {
+    location.hash = '#admin';
+    return;
+  }
+  mode = 'admin';
+  fillForm({ store: s, owner: s.owner || {}, locations: s.store_locations });
+  $('formTitle').textContent = `تعديل بيانات «${s.name}»`;
+  $('formSubtitle').textContent = 'تعديل المشرف: كل الحقول متاحة، والحفظ يطلع على المنصة مباشرة بدون مراجعة.';
+  $('editNotice').hidden = false;
+  $('editNotice').textContent = '🛠️ أنت تعدّل كمشرف. التعديلات تُحفظ فورًا، وأي طلب تعديل معلّق من صاحب المتجر يبقى بانتظار مراجعتك.';
+  f.email.disabled = false;
+  f.agree.checked = true;
+  // متاجر قديمة ما جاوبت على «محل فعلي؟»: المشرف ما يُلزم بها
+  form.querySelectorAll('input[name="physical_store"]').forEach(r => { r.required = false; });
+  $('submitBtn').textContent = 'حفظ التعديلات 💾';
+}
+
+function fillForm({ store: s, owner: o = {}, locations: locs }) {
+  editId = s.id;
+  $('formBadge').hidden = true;
+  $('accountFieldset').hidden = true;
+  for (const name of ['login_email', 'password', 'password2']) f[name].required = false;
 
   setChecked('entity_type', s.entity_type);
   updateEntity();
@@ -748,6 +790,7 @@ async function startEdit() {
   if (typeof s.has_physical_store === 'boolean') setChecked('physical_store', s.has_physical_store ? 'yes' : 'no');
   f.approximate.checked = Boolean(s.approximate);
 
+  o ||= {};
   f.owner_name.value = o.owner_name || '';
   f.phone.value = localPhone(o.phone);
   f.email.value = o.email || '';
@@ -768,6 +811,7 @@ async function startEdit() {
 
 function exitEdit() {
   mode = 'register';
+  form.querySelectorAll('input[name="physical_store"]').forEach(r => { r.required = true; });
   editId = null;
   $('accountFieldset').hidden = false;
   $('editNotice').hidden = true;
@@ -799,13 +843,22 @@ function resetForm() {
 // عند فتح القسم: #edit يفتح وضع التعديل، و#add نموذج تسجيل جديد
 export async function onShow() {
   map.invalidateSize();
+  if (location.hash === '#admin-edit') {
+    if (mode === 'edit') exitEdit();
+    resetForm();
+    mode = 'admin';
+    applyFormSettings();
+    await startAdminEdit();
+    return;
+  }
   if (location.hash === '#edit') {
+    if (mode === 'admin') exitEdit();
     resetForm();
     applyFormSettings();
     await startEdit();
     return;
   }
-  if (mode === 'edit') {
+  if (mode !== 'register') {
     exitEdit();
     resetForm();
   }

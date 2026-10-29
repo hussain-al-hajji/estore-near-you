@@ -502,6 +502,13 @@ const STATUS_ACTIONS = {
 async function act(id, action) {
   const store = state.stores.find(s => s.id === id);
   if (!store) return;
+  if (action === 'full-edit') {
+    // نموذج التسجيل نفسه بوضع المشرف: كل الحقول (المجالات، الوسوم، الشعار، المواقع، بيانات المسجّل…) والحفظ مباشر
+    try { sessionStorage.setItem('dukkan.adminEdit', id); } catch { /* لا شيء */ }
+    closeDrawer();
+    location.hash = '#admin-edit';
+    return;
+  }
   try {
     if (action === 'delete') {
       if (!confirm(`حذف «${store.name}» نهائيًا مع بيانات صاحبه ومدفوعاته؟ لا يمكن التراجع.`)) return;
@@ -758,6 +765,7 @@ function openDrawer(id) {
     </header>
 
     <div class="drawer-actions">
+      ${btn('full-edit', '✏️ تعديل كل البيانات')}
       ${s.status === 'pending' || s.status === 'rejected' ? btn('approve', '✓ اعتماد ونشر', true) : ''}
       ${s.status === 'suspended' ? btn('resume', '▶️ إعادة الظهور', true) : ''}
       ${s.status === 'approved' ? btn('suspend', '⏸ إيقاف الظهور') : ''}
