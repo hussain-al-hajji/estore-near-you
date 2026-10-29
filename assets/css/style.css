@@ -788,6 +788,12 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .search-here { position: absolute; z-index: 500; top: 56px; left: 50%; translate: -50% 0; box-shadow: 3px 3px 0 var(--lime), 0 8px 24px rgb(0 0 0 / 20%); animation: pop-in .25s both; }
 
 /* ---------- راسلنا ---------- */
+.install-hint {
+  position: fixed; z-index: 3000; left: 50%; top: 14px; translate: -50% 0; width: max-content; max-width: calc(100% - 32px);
+  padding: 10px 16px; border-radius: 16px; background: var(--ink); color: #fff; font-size: 14px; text-align: center;
+  box-shadow: 3px 3px 0 var(--lime), 0 8px 24px rgb(0 0 0 / 25%); animation: pop-in .25s both;
+}
+.install-hint[hidden] { display: none; }
 .install-body { position: relative; padding: 22px 20px 20px; }
 .install-body .close {
   position: absolute; top: 12px; left: 12px; width: 34px; height: 34px; border-radius: 50%;

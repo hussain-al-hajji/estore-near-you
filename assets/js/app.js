@@ -109,10 +109,28 @@ document.addEventListener('click', async e => {
     await installPrompt.userChoice.catch(() => {});
     installPrompt = null;
     syncInstallButtons();
+  } else if (isIos && navigator.share) {
+    // آبل ما تسمح بالتثبيت برمجيًا، فنفتح قائمة المشاركة مباشرة وما يبقى على المستخدم غير اختيار «إضافة إلى الشاشة الرئيسية»
+    showInstallHint(true);
+    try {
+      await navigator.share({ title: 'دكان الحي', url: `${location.origin}/` });
+    } catch (err) {
+      if (err?.name !== 'AbortError') document.getElementById('installDialog')?.showModal();
+    }
+    showInstallHint(false);
   } else {
     document.getElementById('installDialog')?.showModal();
   }
 });
+
+let hintTimer = 0;
+function showInstallHint(show) {
+  const hint = document.getElementById('installHint');
+  if (!hint) return;
+  clearTimeout(hintTimer);
+  hint.hidden = !show;
+  if (show) hintTimer = setTimeout(() => { hint.hidden = true; }, 12000);
+}
 document.getElementById('installDialog')?.addEventListener('click', e => {
   if (e.target.id === 'installDialog' || e.target.closest('[data-close]')) e.currentTarget.close();
 });
