@@ -258,6 +258,9 @@ function demoBackend() {
         const calls = Math.round(300 + seeded(day) * 400);
         days.push({ day, kind: 'search', calls, bytes: calls * Math.round(45000 + seeded(`${day}b`) * 40000) });
         days.push({ day, kind: 'banner', calls: Math.round(calls * 0.3), bytes: Math.round(calls * 0.3) * 6000 });
+        const opens = Math.round(calls * 0.06);
+        days.push({ day, kind: 'map_open', calls: opens, bytes: 0 });
+        days.push({ day, kind: 'map_tiles', calls: opens * Math.round(40 + seeded(`${day}m`) * 40), bytes: 0 });
       }
       return { days };
     },

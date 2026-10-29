@@ -841,7 +841,7 @@ function openDrawer(id) {
   loadDrawerPerformance(s.id);
 
   drawerMap?.remove();
-  drawerMap = createMap('drawerMap');
+  drawerMap = createMap('drawerMap', { count: false });
   const locs = storeLocations(s);
   locs.forEach((l, i) => {
     L.marker([l.lat, l.lng], { icon: pinIcon('store', locs.length > 1 ? String(i + 1) : CATEGORY_ICONS[s.category]) }).addTo(drawerMap);
@@ -903,8 +903,32 @@ const mb = bytes => `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 
 // ---------- استهلاك البيانات الصادرة (تقدير من داخل المنصة) ----------
 
 const EGRESS_LIMIT_BYTES = 5 * 1024 ** 3;
+// الباقات المجانية عند خدمات الخرائط المستضافة غالبًا بين 50 و150 ألف طلب بالشهر (تتغير، تأكد من موقع الخدمة)
+const MAP_FREE_TILES = 100000;
 const gb = bytes => `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 const KIND_LABELS = { search: 'بحث المتاجر', banner: 'البنرات', pin: 'المتاجر المثبّتة' };
+
+// استهلاك الخريطة (OpenStreetMap): عدد المربعات المحمّلة في متصفحات الزوار وعدد مرات فتح الخريطة
+function mapUsageHtml(rows, dayOfMonth, daysInMonth) {
+  const sum = kind => rows.filter(r => r.kind === kind).reduce((n, r) => n + Number(r.calls), 0);
+  const tiles = sum('map_tiles');
+  const opens = sum('map_open');
+  if (!tiles) {
+    return `<h3 class="sub-title">🗺️ استهلاك الخريطة</h3><p class="hint">ما فيه بيانات هذا الشهر بعد. تظهر بعد تشغيل ترحيل قاعدة البيانات 015 وأول زيارات للموقع.</p>`;
+  }
+  const projected = Math.round((tiles / Math.max(dayOfMonth, 1)) * daysInMonth);
+  const pct = Math.min(100, Math.round((tiles / MAP_FREE_TILES) * 100));
+  const projPct = Math.round((projected / MAP_FREE_TILES) * 100);
+  const level = projPct >= 100 ? 'تجاوز الباقات المجانية: انتقل لخدمة خرائط مستضافة أو استضافة ذاتية'
+    : projPct >= 70 ? 'قرّب من الحد: خطط للانتقال' : 'مريح';
+  return `
+    <h3 class="sub-title">🗺️ استهلاك الخريطة <small class="private">تقدير شهري</small></h3>
+    <div class="storage-meter${pct >= 70 ? ' warn' : ''}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${Math.max(pct, 1)}%"></span></div>
+    <p class="storage-text"><strong><bdi dir="ltr">${formatNumber(tiles)}</bdi></strong> مربع خريطة من <bdi dir="ltr">${formatNumber(MAP_FREE_TILES)}</bdi> (حد الباقات المجانية التقريبي) · <bdi dir="ltr">${pct}%</bdi></p>
+    <p class="hint">المتوقع نهاية الشهر: <b><bdi dir="ltr">${formatNumber(projected)}</bdi></b> (<bdi dir="ltr">${projPct}%</bdi>) · الحالة: <b class="${projPct >= 70 ? 'warn-text' : ''}">${level}</b>
+      ${opens ? ` · ${formatNumber(opens)} فتحة للخريطة، بمتوسط <bdi dir="ltr">${formatNumber(Math.round(tiles / opens))}</bdi> مربع للفتحة` : ''}</p>
+    <p class="hint">ℹ️ تقدير من المتصفحات: يشمل المربعات المحفوظة مسبقًا عند الزائر، فالرقم الفعلي على الخدمة أقل شوي. خرائط OpenStreetMap المجانية مناسبة للتجربة والاستخدام الخفيف، وإذا كبر الموقع أو نزل التطبيق في المتجرين انتقل لخدمة مستضافة أو استضافة ذاتية.</p>`;
+}
 
 async function renderUsage() {
   const panel = $('usagePanel');
@@ -942,6 +966,7 @@ async function renderUsage() {
       <tbody>${perKind.map(([label, c, b]) => `<tr><td>${label}</td><td>${formatNumber(c)}</td><td dir="ltr">${mb(b)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">ما فيه بيانات هذا الشهر بعد</td></tr>'}</tbody>
     </table>
     ${calls ? `<p class="hint">متوسط حجم نتيجة البحث <bdi dir="ltr">${avgKb} KB</bdi> · ${formatNumber(calls)} بحث هذا الشهر.</p>` : ''}
+    ${mapUsageHtml(rows, dayOfMonth, daysInMonth)}
     <p class="hint">⚠️ هذا تقدير لما ترسله المنصة من نتائج (بحث وبنرات وتثبيت)، وليس رقم Supabase الرسمي (يشمل أيضًا الحسابات والتسجيل وغيرها). للرقم الرسمي افتح مشروعك في Supabase ← <b>Settings ← Usage</b> وراقب «Egress». إذا قرّب من 70% فكّر في الترقية إلى Pro (250 GB).</p>`;
   columnChart($('usageChart'), data.days.filter(r => r.day >= addDaysKey(today, -29)).reduce((acc, r) => {
     const last = acc.at(-1);

@@ -34,6 +34,7 @@ export function renderFooters() {
     ]);
     const links = el('nav', { class: 'footer-links', 'aria-label': 'روابط' }, [
       el('button', { type: 'button', class: 'footer-link-btn', 'data-open-contact': 'general', html: '✉️ راسلنا' }),
+      el('button', { type: 'button', class: 'footer-install-btn', 'data-install-app': '', hidden: '', html: '📲 ثبّت التطبيق' }),
       el('a', { href: '#', text: 'تصفح المتاجر' }),
       el('a', { href: '#add', text: 'أضف متجرك' }),
       el('a', { href: '#account', text: 'دخول أصحاب المتاجر' }),

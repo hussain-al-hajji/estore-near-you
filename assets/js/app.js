@@ -84,7 +84,46 @@ document.addEventListener('click', async e => {
   (await import('./contact.js')).openContact(btn.dataset.openContact || 'general');
 });
 
+// ---- تثبيت التطبيق (PWA) ----
+// أندرويد وكروم: نلتقط حدث التثبيت ونعرضه بزر بالتذييل. آيفون: ما فيه حدث، فنعرض خطوات يدوية.
+let installPrompt = null;
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function syncInstallButtons() {
+  const visible = !standalone() && (Boolean(installPrompt) || isIos);
+  for (const b of document.querySelectorAll('[data-install-app]')) b.hidden = !visible;
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  installPrompt = e;
+  syncInstallButtons();
+});
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  syncInstallButtons();
+});
+document.addEventListener('click', async e => {
+  if (!e.target.closest('[data-install-app]')) return;
+  if (installPrompt) {
+    installPrompt.prompt();
+    await installPrompt.userChoice.catch(() => {});
+    installPrompt = null;
+    syncInstallButtons();
+  } else {
+    document.getElementById('installDialog').showModal();
+  }
+});
+document.getElementById('installDialog').addEventListener('click', e => {
+  if (e.target.id === 'installDialog' || e.target.closest('[data-close]')) e.currentTarget.close();
+});
+
+// خدمة العمل بدون اتصال (تعمل على https وlocalhost فقط)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
 window.addEventListener('hashchange', route);
 await loadSettings();
 renderFooters();
+syncInstallButtons();
 route();

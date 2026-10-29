@@ -771,6 +771,19 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
   font-weight: 700; cursor: pointer; box-shadow: 2px 2px 0 rgb(255 255 255 / 25%); transition: transform .15s;
 }
 .footer-link-btn:hover, .footer-link-btn:focus-visible { transform: translateY(-1px); outline: none; }
+.footer-install-btn {
+  border: 1.5px solid var(--lime); padding: 4px 12px; border-radius: 999px; background: none; color: var(--lime);
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.footer-install-btn[hidden] { display: none; }
+.footer-install-btn:hover, .footer-install-btn:focus-visible { background: rgb(198 241 53 / 14%); outline: none; }
+.install-body { position: relative; padding: 22px 20px 20px; }
+.install-body .close {
+  position: absolute; top: 12px; left: 12px; width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: var(--bg); color: var(--ink); font-size: 15px; cursor: pointer;
+}
+.install-body h2 { margin: 0 0 12px; font-size: 20px; padding-inline-end: 8px; }
+.install-steps { margin: 0; padding-inline-start: 22px; line-height: 2; font-size: 15px; }
 .form-contact { margin: 22px 4px 0; padding: 14px 16px; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .fc-links { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .fc-links a { font-weight: 600; }

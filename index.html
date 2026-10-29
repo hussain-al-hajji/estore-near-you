@@ -24,6 +24,11 @@
   <meta name="twitter:description" content="اكتشف المتاجر الإلكترونية القريبة منك على الخريطة، وادعم المشاريع المحلية والأسر المنتجة.">
   <meta name="twitter:image" content="https://dokkan.hussain-al-hajji.com/assets/img/og-image.jpg?v=2">
   <meta name="theme-color" content="#5b2ee6">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="دكان الحي">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="assets/img/icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,6 +98,19 @@
         <footer class="site-footer in-sheet" data-site-footer></footer>
       </section>
     </main>
+
+    <dialog class="report-dialog" id="installDialog" aria-labelledby="installTitle">
+      <div class="install-body">
+        <button type="button" class="close" data-close aria-label="إغلاق">✕</button>
+        <h2 id="installTitle">📲 ثبّت دكان الحي على جوالك</h2>
+        <ol class="install-steps">
+          <li>افتح الموقع من متصفح <b>Safari</b>.</li>
+          <li>اضغط زر المشاركة <b>⬆️</b> بأسفل الشاشة.</li>
+          <li>اختر <b>«إضافة إلى الشاشة الرئيسية»</b>.</li>
+          <li>اضغط <b>«إضافة»</b>، ويظهر دكان الحي بين تطبيقاتك.</li>
+        </ol>
+      </div>
+    </dialog>
 
     <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportTitle">
       <form id="reportForm" method="dialog" novalidate>

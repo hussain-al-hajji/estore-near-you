@@ -423,6 +423,17 @@ export function logEvent(type, storeId = null) {
   storage(DEMO.events, events);
 }
 
+// عدّاد تقديري لاستهلاك الخريطة (عدد المربعات المحمّلة) لعرضه في لوحة التحكم، بدون أي بيانات شخصية
+export function logMapUsage(tiles, opened = false) {
+  if (!LIVE || LOCAL_HOST || (!tiles && !opened)) return;
+  fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/log_map_usage`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ p_tiles: tiles, p_opened: opened }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 // ظهور المتاجر في نتائج البحث (لإحصائيات أصحاب المتاجر): الكلمة ومدينة الباحث فقط، بدون بيانات شخصية
 export function logImpressions(storeIds, term, city) {
   if (!storeIds.length) return;
