@@ -39,6 +39,8 @@ window.dukkanRecovery = /type=recovery/.test(location.hash);
 window.dukkanAuthError = /error_code=/.test(location.hash) ? new URLSearchParams(location.hash.slice(1)).get('error_code') : null;
 
 function viewFor(hash) {
+  // مكتبة الدخول تمسح رمز الاستعادة من الرابط (location.hash = '')، فنبقى في صفحة تعيين كلمة المرور
+  if (!hash && window.dukkanRecovery) return 'account';
   if (hash === '#add' || hash === '#edit' || hash === '#admin-edit') return 'add';
   if (hash === '#privacy' || hash === '#terms') return 'legal';
   if (hash === '#account' || /access_token=|type=recovery|error_code=/.test(hash)) return 'account';
