@@ -361,7 +361,6 @@ function renderIntent() {
       parts.push(`<span class="intent-chip${c.info ? ' info' : ''}"><button type="button" data-intent="${escapeHtml(c.key)}" data-kind="${needsLoc ? 'locate' : 'info'}">${escapeHtml(c.label)}${needsLoc ? ' · فعّل الموقع' : ''}</button><button type="button" data-dismiss="${escapeHtml(c.key)}" aria-label="إلغاء: ${escapeHtml(c.label)}">✕</button></span>`);
     }
   }
-  if (state.tooWide && !state.shared) parts.push('<span class="intent-relax">🔍 قرّب الخريطة لتظهر لك متاجر المنطقة المعروضة، والأرقام على الفقاعات تبيّن عددها.</span>');
   if (state.relaxed && !state.shared) parts.push('<span class="intent-relax">ما لقينا متجر يطابق كل كلماتك، فعرضنا الأقرب لها أولًا.</span>');
   els.intent.innerHTML = parts.join('');
   els.intent.hidden = !parts.length;
@@ -582,8 +581,68 @@ function render({ fit = false } = {}) {
   }
 }
 
+// ---- قائمة المتاجر: اضغط الخط أو اسحبها لفوق لتغطي الخريطة، واضغطه أو اسحبها لتحت لترجع ----
+const split = document.querySelector('.split');
+const sheet = document.querySelector('.sheet');
+const sheetHead = sheet.querySelector('.sheet-head');
+const grab = $('sheetGrab');
+let sheetDrag = null;
+let suppressGrabClick = false;
+
+function setSheetOpen(open) {
+  split.classList.toggle('sheet-open', open);
+  grab.setAttribute('aria-expanded', String(open));
+  grab.setAttribute('aria-label', open ? 'إظهار الخريطة' : 'توسيع قائمة المتاجر');
+}
+
+grab.addEventListener('click', () => {
+  if (suppressGrabClick) return;
+  setSheetOpen(!split.classList.contains('sheet-open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && split.classList.contains('sheet-open') && document.body.dataset.view === 'browse') setSheetOpen(false);
+});
+
+sheetHead.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  sheetDrag = { y0: e.clientY, top0: sheet.offsetTop, t0: performance.now(), moved: false };
+});
+sheetHead.addEventListener('pointermove', e => {
+  if (!sheetDrag) return;
+  const dy = e.clientY - sheetDrag.y0;
+  if (!sheetDrag.moved) {
+    if (Math.abs(dy) < 8) return;
+    sheetDrag.moved = true;
+    sheet.classList.add('dragging');
+    sheetHead.setPointerCapture(e.pointerId);
+  }
+  const closedTop = split.clientHeight / 2 - 12;
+  sheet.style.top = `${Math.max(0, Math.min(closedTop, sheetDrag.top0 + dy))}px`;
+});
+function endSheetDrag(e) {
+  if (!sheetDrag) return;
+  const d = sheetDrag;
+  sheetDrag = null;
+  if (!d.moved) return;
+  const dy = e.clientY - d.y0;
+  const v = dy / Math.max(performance.now() - d.t0, 1);
+  const wasOpen = split.classList.contains('sheet-open');
+  let open = wasOpen;
+  if (dy < -40 || v < -0.5) open = true;
+  else if (dy > 40 || v > 0.5) open = false;
+  sheet.classList.remove('dragging');
+  sheet.style.top = '';
+  setSheetOpen(open);
+  suppressGrabClick = true;
+  setTimeout(() => { suppressGrabClick = false; }, 0);
+}
+sheetHead.addEventListener('pointerup', endSheetDrag);
+sheetHead.addEventListener('pointercancel', endSheetDrag);
+
 function select(id, { fromMap = false } = {}) {
   state.selectedId = id;
+  // اختيار متجر من القائمة يعرضه على الخريطة، فنرجّع القائمة لحجمها الطبيعي
+  if (!fromMap) setSheetOpen(false);
   els.list.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
   const card = els.list.querySelector(`.card[data-id="${CSS.escape(String(id))}"]`);
   if (card) {

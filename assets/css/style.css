@@ -143,23 +143,32 @@ select:disabled { background: #f3f1fa; color: var(--muted); }
 .chip:focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
 
 .split { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
-.map { flex: 1 1 50%; min-height: 0; z-index: 0; background: #e8e4f4; }
-/* القائمة كورقة سفلية بزوايا دائرية تتداخل قليلًا مع الخريطة */
+.map { flex: 0 0 calc(50% + 12px); min-height: 0; z-index: 0; background: #e8e4f4; }
+/* القائمة كورقة سفلية بزوايا دائرية تتداخل قليلًا مع الخريطة؛ تنزلق لفوق وتغطي الخريطة عند الضغط على الخط أو سحبها */
 .sheet {
-  flex: 1 1 50%; min-height: 0; overflow-y: auto; position: relative; z-index: 1;
-  margin-top: -24px; border-radius: 28px 28px 0 0; background: var(--bg);
+  position: absolute; left: 0; right: 0; bottom: 0; top: calc(50% - 12px); z-index: 1;
+  overflow-y: auto; overscroll-behavior: contain; border-radius: 28px 28px 0 0; background: var(--bg);
   box-shadow: 0 -8px 30px rgb(28 18 64 / 14%);
-  padding: 0 16px 28px;
+  padding: 0 16px 28px; transition: top .32s cubic-bezier(.2, .8, .2, 1);
 }
+.sheet.dragging { transition: none; }
+.split.sheet-open .sheet { top: 0; border-radius: 0; box-shadow: none; }
+.split.sheet-open .geo-note, .split.sheet-open .search-here { display: none; }
 .sheet-head {
   position: sticky; top: 0; z-index: 2; background: var(--bg);
   display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
   margin: 0 -16px; padding: 22px 16px 12px;
 }
+.sheet-head { touch-action: none; user-select: none; }
 .grabber {
-  position: absolute; top: 8px; left: 50%; translate: -50% 0;
-  width: 44px; height: 5px; border-radius: 99px; background: #d5cfea;
+  position: absolute; top: 0; left: 0; right: 0; height: 26px; padding: 0; border: none; background: none; cursor: grab;
 }
+.grabber::before {
+  content: ''; position: absolute; top: 8px; left: 50%; translate: -50% 0;
+  width: 44px; height: 5px; border-radius: 99px; background: #d5cfea; transition: background .15s, width .15s;
+}
+.grabber:hover::before, .grabber:focus-visible::before { background: var(--violet); width: 56px; }
+.grabber:focus-visible { outline: none; }
 .sheet-head h1 { font-family: var(--display); font-weight: 400; font-size: 28px; margin: 0; line-height: 1.1; }
 .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
 .legend { display: flex; gap: 12px; font-size: 13px; color: var(--muted); padding-bottom: 4px; }
@@ -415,6 +424,8 @@ form.validated :is(input, select, textarea):invalid { border-color: var(--danger
   .topbar { padding: 8px 16px; }
   .tagline { display: none; }
   .topbar .btn { margin-inline-start: auto; }
+  .topbar .btn + .btn { margin-inline-start: 0; }
+  .topbar .btn-install { padding-inline: 12px; }
   .brand img { height: 34px; }
   .filter-row { flex-direction: column; align-items: stretch; }
   .search { flex: 0 0 auto; }
@@ -480,9 +491,18 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .footer-contact { display: inline-flex; align-items: center; gap: 6px; color: rgb(255 255 255 / 85%); text-decoration: none; font-size: 13px; width: fit-content; }
 .footer-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; flex: 0 0 auto; color: var(--lime); }
 .footer-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.footer-links { display: flex; align-items: center; gap: 6px 11px; flex-wrap: wrap; }
-.footer-links a { color: var(--lime); text-decoration: none; font-weight: 600; font-size: 13px; }
-.footer-links a:hover { text-decoration: underline; }
+.footer-links { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.footer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.footer-legal { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.footer-legal a { color: var(--lime); text-decoration: none; font-weight: 600; font-size: 13px; }
+.footer-legal a:hover { text-decoration: underline; }
+.footer-legal .sep { color: rgb(255 255 255 / 35%); font-size: 13px; }
+.footer-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px;
+  border: 1.5px solid var(--lime); background: none; color: var(--lime); font: inherit; font-size: 13px; font-weight: 700;
+  text-decoration: none; cursor: pointer; transition: background .15s, transform .15s;
+}
+.footer-pill:hover, .footer-pill:focus-visible { background: rgb(198 241 53 / 14%); transform: translateY(-1px); outline: none; }
 .footer-disclaimer {
   max-width: 1100px; margin: 12px auto 0; padding: 8px 12px; border-radius: 12px;
   background: rgb(255 255 255 / 6%); font-size: 11.5px; line-height: 1.7; color: rgb(255 255 255 / 68%);
@@ -502,8 +522,9 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
   .footer-brand p { font-size: 11.5px; line-height: 1.6; margin: 0; }
   .footer-brand img { height: 24px; }
   .footer-side { gap: 6px; }
-  .footer-links { gap: 4px 12px; }
-  .footer-links a, .footer-contact { font-size: 12px; }
+  .footer-links { gap: 6px; }
+  .footer-legal a, .footer-contact { font-size: 12px; }
+  .footer-pill { padding: 4px 12px; font-size: 12.5px; }
   .footer-disclaimer { margin-top: 8px; padding: 6px 10px; font-size: 11px; line-height: 1.6; }
   .footer-bottom { margin-top: 6px; padding-top: 6px; font-size: 11px; }
 }
@@ -548,8 +569,10 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .link-btn { border: none; background: none; padding: 0; font: inherit; color: var(--violet); font-weight: 600; text-decoration: underline; cursor: pointer; }
 
 /* ---------- حساب صاحب المتجر ---------- */
-.btn-account { margin-inline-start: auto; }
-.topbar .btn-account + .btn { margin-inline-start: 0; }
+.topbar .btn-install { margin-inline-start: auto; }
+.topbar .btn-install[hidden] { display: none; }
+.topbar .btn-install ~ .btn { margin-inline-start: 0; }
+.btn-pop .plus { margin-inline-end: 2px; }
 .hero-links { display: flex; gap: 8px; flex-wrap: wrap; }
 .pw-rules { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .pw-rules li {
@@ -603,7 +626,6 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .owner-empty .big { font-size: 44px; }
 
 @media (max-width: 640px) {
-  .btn-account span { display: none; }
   .owner-tiles { grid-template-columns: 1fr 1fr !important; }
   .owner-bars { grid-template-columns: 1fr; }
   .owner-info > div { grid-template-columns: 7em 1fr; }
@@ -766,17 +788,6 @@ form.validated .entity-card input:invalid + .entity-body { border-color: var(--d
 .search-here { position: absolute; z-index: 500; top: 56px; left: 50%; translate: -50% 0; box-shadow: 3px 3px 0 var(--lime), 0 8px 24px rgb(0 0 0 / 20%); animation: pop-in .25s both; }
 
 /* ---------- راسلنا ---------- */
-.footer-link-btn {
-  border: none; padding: 5px 14px; border-radius: 999px; background: var(--lime); color: var(--ink); font: inherit; font-size: 13px;
-  font-weight: 700; cursor: pointer; box-shadow: 2px 2px 0 rgb(255 255 255 / 25%); transition: transform .15s;
-}
-.footer-link-btn:hover, .footer-link-btn:focus-visible { transform: translateY(-1px); outline: none; }
-.footer-install-btn {
-  border: 1.5px solid var(--lime); padding: 4px 12px; border-radius: 999px; background: none; color: var(--lime);
-  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
-}
-.footer-install-btn[hidden] { display: none; }
-.footer-install-btn:hover, .footer-install-btn:focus-visible { background: rgb(198 241 53 / 14%); outline: none; }
 .install-body { position: relative; padding: 22px 20px 20px; }
 .install-body .close {
   position: absolute; top: 12px; left: 12px; width: 34px; height: 34px; border-radius: 50%;

@@ -32,14 +32,17 @@ export function renderFooters() {
       el('img', { src: 'assets/img/logo-white.svg', alt: 'دكان الحي', height: '40' }),
       el('p', { text: f.about || '' }),
     ]);
+    // سطر أزرار (راسلنا · دخول المتجر) وتحته سطر الروابط القانونية
     const links = el('nav', { class: 'footer-links', 'aria-label': 'روابط' }, [
-      el('button', { type: 'button', class: 'footer-link-btn', 'data-open-contact': 'general', html: '✉️ راسلنا' }),
-      el('button', { type: 'button', class: 'footer-install-btn', 'data-install-app': '', hidden: '', html: '📲 ثبّت التطبيق' }),
-      el('a', { href: '#', text: 'تصفح المتاجر' }),
-      el('a', { href: '#add', text: 'أضف متجرك' }),
-      el('a', { href: '#account', text: 'دخول أصحاب المتاجر' }),
-      el('a', { href: '#privacy', text: 'سياسة الخصوصية' }),
-      el('a', { href: '#terms', text: 'شروط الاستخدام' }),
+      el('div', { class: 'footer-actions' }, [
+        el('button', { type: 'button', class: 'footer-pill', 'data-open-contact': 'general', html: '<span aria-hidden="true">✉️</span> راسلنا' }),
+        el('a', { class: 'footer-pill', href: '#account', html: '<span aria-hidden="true">🔑</span> دخول المتجر' }),
+      ]),
+      el('div', { class: 'footer-legal' }, [
+        el('a', { href: '#privacy', text: 'سياسة الخصوصية' }),
+        el('span', { class: 'sep', 'aria-hidden': 'true', text: '|' }),
+        el('a', { href: '#terms', text: 'شروط الاستخدام' }),
+      ]),
     ]);
     const disclaimer = SETTINGS.legal.disclaimer
       ? el('p', { class: 'footer-disclaimer' }, [el('strong', { text: '⚖️ إخلاء مسؤولية: ' }), SETTINGS.legal.disclaimer])

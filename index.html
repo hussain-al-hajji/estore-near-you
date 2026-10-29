@@ -46,8 +46,8 @@
         <img src="assets/img/logo.svg" alt="دكان الحي" height="40">
       </a>
       <span class="tagline">متاجر إلكترونية من حيّك 📍</span>
-      <a class="btn btn-ghost btn-account" href="#account" title="دخول أصحاب المتاجر">🔑 <span>متجري</span></a>
-      <a class="btn btn-primary btn-pop" href="#add"><span class="plus">+</span> أضف متجرك</a>
+      <button type="button" class="btn btn-ghost btn-install" data-install-app hidden>📲 <span>ثبّت التطبيق</span></button>
+      <a class="btn btn-primary btn-pop" href="#add" aria-label="أضف متجرك"><span class="plus">+</span>متجرك</a>
     </header>
 
     <div class="demo-banner" id="demoBanner" hidden>🧪 وضع تجريبي: المتاجر المعروضة وهمية لأغراض العرض فقط.</div>
@@ -86,7 +86,7 @@
       <div id="map" class="map" role="region" aria-label="خريطة المتاجر"></div>
       <section class="sheet" aria-label="قائمة المتاجر">
         <div class="sheet-head">
-          <span class="grabber" aria-hidden="true"></span>
+          <button type="button" class="grabber" id="sheetGrab" aria-label="توسيع قائمة المتاجر" aria-expanded="false"></button>
           <div>
             <h1 id="count">جارٍ التحميل…</h1>
             <p class="subtitle" id="subtitle"></p>
