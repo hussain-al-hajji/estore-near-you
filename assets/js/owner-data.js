@@ -39,8 +39,9 @@ function liveBackend(sb) {
     })),
     adMessage: async (id, body) => check(await sb.rpc('owner_ad_message', { p_id: id, p_body: body })),
     cancelAd: async id => check(await sb.rpc('owner_cancel_ad', { p_id: id })),
+    // بدون #account: Supabase يضيف «#access_token=…» للرابط، ووجود # ثانية يخرّب قراءته
     async resetPassword(email) {
-      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}${location.pathname}#account` });
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}${location.pathname}` });
       if (error) throw new Error(authErrorMessage(error.message));
     },
     async updatePassword(password) {

@@ -32,12 +32,16 @@ const VIEWS = {
 };
 
 // رابط استعادة كلمة المرور يصل بالشكل #access_token=…&type=recovery
+// الروابط القديمة كانت تصل «#account#access_token=…» فما تقدر مكتبة الدخول تقرأها: نشيل «#account» الزائدة
+if (/^#[a-z-]+#/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace(/^#[a-z-]+/, ''));
 window.dukkanRecovery = /type=recovery/.test(location.hash);
+// رابط منتهي أو مستخدم سابقًا يرجع بـ #error=…&error_code=…
+window.dukkanAuthError = /error_code=/.test(location.hash) ? new URLSearchParams(location.hash.slice(1)).get('error_code') : null;
 
 function viewFor(hash) {
   if (hash === '#add' || hash === '#edit' || hash === '#admin-edit') return 'add';
   if (hash === '#privacy' || hash === '#terms') return 'legal';
-  if (hash === '#account' || /access_token=|type=recovery/.test(hash)) return 'account';
+  if (hash === '#account' || /access_token=|type=recovery|error_code=/.test(hash)) return 'account';
   if (hash === '#admin' || hash.startsWith('#admin/')) return 'admin';
   return 'browse';
 }

@@ -32,6 +32,13 @@ function loginMessage(error = '', ok = '') {
 }
 
 function showLogin(error = '') {
+  if (window.dukkanAuthError) {
+    error = window.dukkanAuthError === 'otp_expired'
+      ? 'رابط تعيين كلمة المرور انتهى أو استُخدم قبل. اكتب إيميلك واضغط «نسيت كلمة المرور؟» لرابط جديد، وافتحه مرة وحدة.'
+      : 'ما قدرنا نتحقق من الرابط. اطلب رابط جديد من «نسيت كلمة المرور؟».';
+    window.dukkanAuthError = null;
+    history.replaceState(null, '', '#account');
+  }
   show('ownerLogin');
   loginMessage(error);
   $('ownerDemo').hidden = !backend.demo;
