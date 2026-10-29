@@ -584,60 +584,63 @@ function render({ fit = false } = {}) {
 // ---- قائمة المتاجر: اضغط الخط أو اسحبها لفوق لتغطي الخريطة، واضغطه أو اسحبها لتحت لترجع ----
 const split = document.querySelector('.split');
 const sheet = document.querySelector('.sheet');
-const sheetHead = sheet.querySelector('.sheet-head');
+const sheetHead = sheet?.querySelector('.sheet-head');
 const grab = $('sheetGrab');
 let sheetDrag = null;
 let suppressGrabClick = false;
 
 function setSheetOpen(open) {
+  if (!grab) return;
   split.classList.toggle('sheet-open', open);
   grab.setAttribute('aria-expanded', String(open));
   grab.setAttribute('aria-label', open ? 'إظهار الخريطة' : 'توسيع قائمة المتاجر');
 }
 
-grab.addEventListener('click', () => {
-  if (suppressGrabClick) return;
-  setSheetOpen(!split.classList.contains('sheet-open'));
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && split.classList.contains('sheet-open') && document.body.dataset.view === 'browse') setSheetOpen(false);
-});
+// (إذا بقيت نسخة قديمة من الصفحة بالمتصفح بدون الزر، نتجاهل الميزة بدل ما تتعطل الصفحة كلها)
+if (grab && sheetHead) {
+  grab.addEventListener('click', () => {
+    if (suppressGrabClick) return;
+    setSheetOpen(!split.classList.contains('sheet-open'));
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && split.classList.contains('sheet-open') && document.body.dataset.view === 'browse') setSheetOpen(false);
+  });
 
-sheetHead.addEventListener('pointerdown', e => {
-  if (e.pointerType === 'mouse' && e.button !== 0) return;
-  sheetDrag = { y0: e.clientY, top0: sheet.offsetTop, t0: performance.now(), moved: false };
-});
-sheetHead.addEventListener('pointermove', e => {
-  if (!sheetDrag) return;
-  const dy = e.clientY - sheetDrag.y0;
-  if (!sheetDrag.moved) {
-    if (Math.abs(dy) < 8) return;
-    sheetDrag.moved = true;
-    sheet.classList.add('dragging');
-    sheetHead.setPointerCapture(e.pointerId);
-  }
-  const closedTop = split.clientHeight / 2 - 12;
-  sheet.style.top = `${Math.max(0, Math.min(closedTop, sheetDrag.top0 + dy))}px`;
-});
-function endSheetDrag(e) {
-  if (!sheetDrag) return;
-  const d = sheetDrag;
-  sheetDrag = null;
-  if (!d.moved) return;
-  const dy = e.clientY - d.y0;
-  const v = dy / Math.max(performance.now() - d.t0, 1);
-  const wasOpen = split.classList.contains('sheet-open');
-  let open = wasOpen;
-  if (dy < -40 || v < -0.5) open = true;
-  else if (dy > 40 || v > 0.5) open = false;
-  sheet.classList.remove('dragging');
-  sheet.style.top = '';
-  setSheetOpen(open);
-  suppressGrabClick = true;
-  setTimeout(() => { suppressGrabClick = false; }, 0);
+  sheetHead.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    sheetDrag = { y0: e.clientY, top0: sheet.offsetTop, t0: performance.now(), moved: false };
+  });
+  sheetHead.addEventListener('pointermove', e => {
+    if (!sheetDrag) return;
+    const dy = e.clientY - sheetDrag.y0;
+    if (!sheetDrag.moved) {
+      if (Math.abs(dy) < 8) return;
+      sheetDrag.moved = true;
+      sheet.classList.add('dragging');
+      sheetHead.setPointerCapture(e.pointerId);
+    }
+    const closedTop = split.clientHeight / 2 - 12;
+    sheet.style.top = `${Math.max(0, Math.min(closedTop, sheetDrag.top0 + dy))}px`;
+  });
+  const endSheetDrag = e => {
+    if (!sheetDrag) return;
+    const d = sheetDrag;
+    sheetDrag = null;
+    if (!d.moved) return;
+    const dy = e.clientY - d.y0;
+    const v = dy / Math.max(performance.now() - d.t0, 1);
+    let open = split.classList.contains('sheet-open');
+    if (dy < -40 || v < -0.5) open = true;
+    else if (dy > 40 || v > 0.5) open = false;
+    sheet.classList.remove('dragging');
+    sheet.style.top = '';
+    setSheetOpen(open);
+    suppressGrabClick = true;
+    setTimeout(() => { suppressGrabClick = false; }, 0);
+  };
+  sheetHead.addEventListener('pointerup', endSheetDrag);
+  sheetHead.addEventListener('pointercancel', endSheetDrag);
 }
-sheetHead.addEventListener('pointerup', endSheetDrag);
-sheetHead.addEventListener('pointercancel', endSheetDrag);
 
 function select(id, { fromMap = false } = {}) {
   state.selectedId = id;

@@ -1,6 +1,6 @@
 // خدمة العمل بدون اتصال لدكان الحي: الصفحات والملفات تُجلب من الشبكة أولًا (فيوصل أي تحديث مباشرة)،
 // وإذا الاتصال ضعيف أو مقطوع نفتح آخر نسخة محفوظة. بيانات المتاجر نفسها (Supabase) والخرائط لا تُحفظ هنا أبدًا.
-const VERSION = 'dukkan-v1';
+const VERSION = 'dukkan-v2';
 const SHELL = `${VERSION}-shell`;
 const CDN = `${VERSION}-cdn`;
 const NETWORK_TIMEOUT = 4000;
@@ -23,7 +23,8 @@ async function networkFirst(request, cacheName, fallbackUrl) {
   const cache = await caches.open(cacheName);
   try {
     const response = await Promise.race([
-      fetch(request),
+      // no-cache: نتأكد من السيرفر أن النسخة الأحدث (304 إذا ما تغيّر شي)، فما نخلط صفحة قديمة بملفات جديدة
+      fetch(request, { cache: 'no-cache' }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), NETWORK_TIMEOUT)),
     ]);
     if (response.ok) cache.put(request, response.clone());

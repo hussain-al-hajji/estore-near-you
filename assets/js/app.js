@@ -110,10 +110,10 @@ document.addEventListener('click', async e => {
     installPrompt = null;
     syncInstallButtons();
   } else {
-    document.getElementById('installDialog').showModal();
+    document.getElementById('installDialog')?.showModal();
   }
 });
-document.getElementById('installDialog').addEventListener('click', e => {
+document.getElementById('installDialog')?.addEventListener('click', e => {
   if (e.target.id === 'installDialog' || e.target.closest('[data-close]')) e.currentTarget.close();
 });
 
