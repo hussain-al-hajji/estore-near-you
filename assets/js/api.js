@@ -307,6 +307,9 @@ export async function submitStore(payload, account = null) {
     const sb = await getClient();
     await ensureAccount(sb, account);
     const { data, error } = await sb.rpc('submit_store', { payload });
+    if (error?.code === 'PT429' || error?.message === 'rate_limited') {
+      throw new Error('أرسلت طلبات تسجيل كثيرة من جهازك. انتظر شوي وجرّب مرة ثانية.');
+    }
     if (error) throw new Error(error.message || 'تعذر إرسال الطلب');
     return data;
   }

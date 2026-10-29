@@ -335,7 +335,7 @@ function renderCities(list) {
     if (rest <= 0 || !place) continue;
     const label = shown.has(`${c.region}|${c.city}`) ? `+${rest}` : String(rest);
     L.marker([place.lat, place.lng], { icon: cityIcon(label, c.city), keyboard: false, count: rest })
-      .bindTooltip(`${storesCountLabel(rest)} ${shown.has(`${c.region}|${c.city}`) ? 'أخرى ' : ''}في ${c.city} · اضغط للعرض`)
+      .bindTooltip(`${storesCountLabel(rest)} ${shown.has(`${c.region}|${c.city}`) ? 'أخرى ' : ''}في ${escapeHtml(c.city)} · اضغط للعرض`)
       .on('click', () => pickCity(c.region, c.city))
       .addTo(cityLayer);
   }
