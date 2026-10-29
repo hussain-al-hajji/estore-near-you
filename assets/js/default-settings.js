@@ -37,6 +37,7 @@ export const DEFAULT_SETTINGS = {
       { name: 'كتب وقرطاسية', icon: '📚' },
       { name: 'صحة وعناية', icon: '🌿' },
       { name: 'حرف ومنتجات يدوية', icon: '🧶' },
+      { name: 'منتجات رقمية', icon: '💻' },
       { name: 'أخرى', icon: '🛍️' },
     ],
   },
