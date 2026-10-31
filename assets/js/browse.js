@@ -2,7 +2,7 @@ import { REGIONS, DELIVERY, DELIVERY_ICONS, REPORT_REASONS } from './constants.j
 import { CATEGORIES, CATEGORY_ICONS, ENTITY_TYPES } from './settings.js';
 import { searchStores, refreshStores, submitReport, getBanners, bannerClick, getPinnedStores, isDemo, logEvent, logImpressions } from './api.js';
 import { parseIntent } from './intent.js';
-import { ICONS, mainLoc, primaryLink, cardHtml as renderCard } from './card.js';
+import { ICONS, mainLoc, primaryLink, entityChip, cardHtml as renderCard } from './card.js';
 import { createMap, pinIcon, userIcon, clusterIcon } from './map.js';
 import { locate, accuracyLabel, geoErrorMessage } from './geo.js';
 import {
@@ -211,7 +211,7 @@ function scheduleSearch({ fit = false } = {}, delay = 0) {
 function popupHtml(s, loc) {
   const main = primaryLink(s);
   return `<div class="popup">
-    <strong>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.name)}</strong>
+    <strong>${CATEGORY_ICONS[s.category] || '🛍️'} ${escapeHtml(s.name)} ${entityChip(s)}</strong>
     <span>${escapeHtml(s.cats.join('، '))} · ${escapeHtml(loc.city)}${loc.district ? ` · ${escapeHtml(loc.district)}` : ''}</span>
     ${main ? `<a href="${escapeHtml(main.href)}" target="_blank" rel="noopener" data-click="${escapeHtml(s.id)}">${main.label}</a>` : ''}
   </div>`;

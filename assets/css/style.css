@@ -212,7 +212,13 @@ select:disabled { background: #f3f1fa; color: var(--muted); }
 .avatar-sky { background: var(--sky); color: #fff; }
 .avatar-pink { background: var(--pink); color: #fff; }
 .card-head { flex: 1; min-width: 0; }
-.card-head h2 { font-size: 17px; font-weight: 700; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-title { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; }
+.card-head h2 { font-size: 17px; font-weight: 700; margin: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entity-chip {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; padding: 0 8px; border-radius: 999px; white-space: nowrap;
+  font-size: 11.5px; font-weight: 600; line-height: 1.8; background: var(--violet-soft); color: var(--violet-dark);
+}
+.entity-chip.entity-freelance { background: #fff3d6; color: #8a5a00; }
 .meta { margin: 2px 0 0; font-size: 13.5px; color: var(--muted); }
 .badge { flex: 0 0 auto; font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; align-self: flex-start; }
 .badge-distance { background: var(--lime); color: var(--ink); }

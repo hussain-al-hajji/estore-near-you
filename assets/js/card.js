@@ -58,6 +58,12 @@ function logoHtml(s) {
     : `<span class="avatar avatar-${avatarTheme(s.name)}">${initial}</span>`;
 }
 
+// نوع المشروع (شركة/مؤسسة أو عمل حر/أسر منتجة) يظهر بجنب الاسم، وليس ضمن مجالات المنتجات
+export function entityChip(s) {
+  const e = ENTITY_TYPES[s.entity_type];
+  return e ? `<span class="entity-chip entity-${escapeHtml(s.entity_type)}">${e.icon} ${e.label}</span>` : '';
+}
+
 export function cardHtml(s, { selected = false, preview = false } = {}) {
   const main = primaryLink(s);
   const delivery = (s.delivery || []).filter(d => DELIVERY[d]);
@@ -66,7 +72,10 @@ export function cardHtml(s, { selected = false, preview = false } = {}) {
       <div class="card-top">
         ${logoHtml(s)}
         <div class="card-head">
-          <h2>${escapeHtml(s.name)}</h2>
+          <div class="card-title">
+            <h2>${escapeHtml(s.name)}</h2>
+            ${entityChip(s)}
+          </div>
           <p class="meta">📍 ${escapeHtml(mainLoc(s).city)}${mainLoc(s).district ? ` · ${escapeHtml(mainLoc(s).district)}` : ''}${s.locs.length > 1 ? ` <span class="more-locs">+${s.locs.length - 1} ${s.locs.length === 2 ? 'موقع آخر' : 'مواقع أخرى'}</span>` : ''}</p>
         </div>
         ${s.pinned ? '<span class="badge badge-pin">📌 مثبّت</span>' : ''}
@@ -75,7 +84,6 @@ export function cardHtml(s, { selected = false, preview = false } = {}) {
       </div>
       <p class="tags">
         ${s.cats.map(c => `<span class="tag">${CATEGORY_ICONS[c] || '🛍️'} ${escapeHtml(c)}</span>`).join('')}
-        ${ENTITY_TYPES[s.entity_type] ? `<span class="tag tag-entity">${ENTITY_TYPES[s.entity_type].icon} ${ENTITY_TYPES[s.entity_type].label}</span>` : ''}
         ${s.has_physical_store === true ? '<span class="tag">🏬 له محل فعلي</span>' : ''}
         ${s.approximate ? '<span class="tag">📍 موقع تقريبي</span>' : ''}
       </p>
